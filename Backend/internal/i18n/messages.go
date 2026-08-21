@@ -1,0 +1,154 @@
+package i18n
+
+var catalog = map[string]map[string]string{
+	"ru": {
+		"Kirish talab qilinadi": "Требуется вход",
+		"Token yaroqsiz":        "Недействительный токен",
+		"Foydalanuvchi topilmadi": "Пользователь не найден",
+		"Ruxsat yo‘q":           "Нет доступа",
+		"Noto‘g‘ri so‘rov":      "Неверный запрос",
+		"Server xatosi":         "Ошибка сервера",
+		"Yig‘im topilmadi":      "Сбор не найден",
+		"Yig‘im yopilgan":       "Сбор закрыт",
+		"Buyurtma topilmadi":    "Заказ не найден",
+		"To‘lov bu oqimda yo‘q — kuryer qabul qilgach kod chiqadi": "В этом процессе оплаты нет — код появится после принятия курьером",
+		"Nom kerak":                 "Нужно название",
+		"Shahar va nom kerak":       "Нужны город и название",
+		"Kuryerga MFY biriktirilmagan. Admin viloyat, tuman va MFY ni belgilasin.": "Курьеру не назначен МФЙ. Админ должен указать область, район и МФЙ.",
+		"Kod kerak":                 "Нужен код",
+		"Sarlavha kerak":            "Нужен заголовок",
+		"Ism va familiya kerak":     "Нужны имя и фамилия",
+		"Viloyat, tuman va MFY kerak": "Нужны область, район и МФЙ",
+		"Parol kamida 6 belgi":      "Пароль минимум 6 символов",
+		"Bu telefon band":           "Этот телефон уже занят",
+		"Parolni yozib bo‘lmadi":    "Не удалось сохранить пароль",
+		"Kuryer topilmadi":          "Курьер не найден",
+		"Kategoriya va nom kerak":   "Нужны категория и название",
+		"Subkategoriya va nom kerak": "Нужны подкатегория и название",
+		"Mahsulot topilmadi":        "Товар не найден",
+		"Mahsulot va miqdor kerak":  "Нужны товар и количество",
+		"mahsulot topilmadi":        "товар не найден",
+		"kod noto‘g‘ri":             "неверный код",
+		"bu raqam boshqa rol uchun band": "этот номер занят другой ролью",
+		"faqat ochiq yig‘imni tahrirlash mumkin": "можно редактировать только открытый сбор",
+		"kuryer qabul qilgan yig‘imni o‘chirib bo‘lmaydi": "сбор, принятый курьером, удалить нельзя",
+		"buyurtmalar bor — yig‘im bekor qilindi": "есть заказы — сбор отменён",
+		"1 tadan 5 tagacha rasm yuklang": "загрузите от 1 до 5 фото",
+		"login yoki parol xato":     "неверный логин или пароль",
+		"username kerak":            "нужен логин",
+		"bu panel uchun ruxsat yo‘q": "нет доступа к этой панели",
+		"avval profil anketasini to‘ldiring": "сначала заполните анкету профиля",
+		"yetkazish usuli noto‘g‘ri": "неверный способ доставки",
+		"uyga yetkazish uchun xarita nuqtasi kerak": "для доставки домой нужна точка на карте",
+		"savat bo‘sh":               "корзина пуста",
+		"buyurtma topilmadi":        "заказ не найден",
+		"ruxsat yo‘q":               "нет доступа",
+		"yig‘im yopilgach bekor qilib bo‘lmaydi": "после закрытия сбора отменить нельзя",
+		"yig‘im topilmadi":          "сбор не найден",
+		"bu yig‘imni yopib bo‘lmaydi": "этот сбор нельзя закрыть",
+		"avval admin yig‘imni yopishi kerak": "сначала админ должен закрыть сбор",
+		"bu MFYda qabul qiladigan buyurtma yo‘q": "в этом МФЙ нет заказов для принятия",
+		"bu yig‘imni bekor qilib bo‘lmaydi": "этот сбор нельзя отменить",
+		"kod hali yo‘q":             "кода ещё нет",
+		"yig‘im hali ochiq — admin yopgach kuryer qabul qiladi": "сбор ещё открыт — курьер примет после закрытия админом",
+		"kuryer qabul qilgach kod chiqadi": "код появится после принятия курьером",
+		"kod yaratib bo‘lmadi":      "не удалось создать код",
+		"kod 4 xonali bo‘lishi kerak": "код должен быть 4-значным",
+		"kod topilmadi":             "код не найден",
+		"bu kod bilan hali topshirib bo‘lmaydi": "по этому коду пока нельзя выдать",
+		"bu kod boshqa MFYga tegishli": "этот код относится к другому МФЙ",
+		"miqdor 0 dan katta bo‘lsin": "количество должно быть больше 0",
+		"kind in yoki out bo‘lsin":  "kind должен быть in или out",
+		"omborda yetarli mahsulot yo‘q": "на складе недостаточно товара",
+		"telefon formati noto‘g‘ri": "неверный формат телефона",
+		"invalid token":             "недействительный токен",
+	},
+	"cyrl": {
+		"Kirish talab qilinadi": "Кириш талаб қилинади",
+		"Token yaroqsiz":        "Токен яроқсиз",
+		"Foydalanuvchi topilmadi": "Фойдаланувчи топилмади",
+		"Ruxsat yo‘q":           "Рухсат йўқ",
+		"Noto‘g‘ri so‘rov":      "Нотўғри сўров",
+		"Server xatosi":         "Сервер хатоси",
+		"Yig‘im topilmadi":      "Йиғим топилмади",
+		"Yig‘im yopilgan":       "Йиғим ёпилган",
+		"Buyurtma topilmadi":    "Буюртма топилмади",
+		"To‘lov bu oqimda yo‘q — kuryer qabul qilgach kod chiqadi": "Тўлов бу оқимда йўқ — курер қабул қилгач код чиқади",
+		"Nom kerak":                 "Ном керак",
+		"Shahar va nom kerak":       "Шаҳар ва ном керак",
+		"Kuryerga MFY biriktirilmagan. Admin viloyat, tuman va MFY ni belgilasin.": "Курерга МФЙ бириктирилмаган. Админ вилоят, туман ва МФЙ ни белгиласин.",
+		"Kod kerak":                 "Код керак",
+		"Sarlavha kerak":            "Сарлавҳа керак",
+		"Ism va familiya kerak":     "Исм ва фамилия керак",
+		"Viloyat, tuman va MFY kerak": "Вилоят, туман ва МФЙ керак",
+		"Parol kamida 6 belgi":      "Парол камида 6 белги",
+		"Bu telefon band":           "Бу телефон банд",
+		"Parolni yozib bo‘lmadi":    "Паролни ёзиб бўлмади",
+		"Kuryer topilmadi":          "Курер топилмади",
+		"Kategoriya va nom kerak":   "Категория ва ном керак",
+		"Subkategoriya va nom kerak": "Субкатегория ва ном керак",
+		"Mahsulot topilmadi":        "Маҳсулот топилмади",
+		"Mahsulot va miqdor kerak":  "Маҳсулот ва миқдор керак",
+		"mahsulot topilmadi":        "маҳсулот топилмади",
+		"kod noto‘g‘ri":             "код нотўғри",
+		"bu raqam boshqa rol uchun band": "бу рақам бошқа рол учун банд",
+		"faqat ochiq yig‘imni tahrirlash mumkin": "фақат очиқ йиғимни таҳрирлаш мумкин",
+		"kuryer qabul qilgan yig‘imni o‘chirib bo‘lmaydi": "курер қабул қилган йиғимни ўчириб бўлмайди",
+		"buyurtmalar bor — yig‘im bekor qilindi": "буюртмалар бор — йиғим бекор қилинди",
+		"1 tadan 5 tagacha rasm yuklang": "1 дан 5 тагача расм юкланг",
+		"login yoki parol xato":     "логин ёки парол хато",
+		"username kerak":            "логин керак",
+		"bu panel uchun ruxsat yo‘q": "бу панель учун рухсат йўқ",
+		"avval profil anketasini to‘ldiring": "аввал профил анкетасини тўлдиринг",
+		"yetkazish usuli noto‘g‘ri": "етказиш усули нотўғри",
+		"uyga yetkazish uchun xarita nuqtasi kerak": "уйга етказиш учун харита нуқтаси керак",
+		"savat bo‘sh":               "сават бўш",
+		"buyurtma topilmadi":        "буюртма топилмади",
+		"ruxsat yo‘q":               "рухсат йўқ",
+		"yig‘im yopilgach bekor qilib bo‘lmaydi": "йиғим ёпилгач бекор қилиб бўлмайди",
+		"yig‘im topilmadi":          "йиғим топилмади",
+		"bu yig‘imni yopib bo‘lmaydi": "бу йиғимни ёпиб бўлмайди",
+		"avval admin yig‘imni yopishi kerak": "аввал админ йиғимни ёпиши керак",
+		"bu MFYda qabul qiladigan buyurtma yo‘q": "бу МФЙда қабул қиладиган буюртма йўқ",
+		"bu yig‘imni bekor qilib bo‘lmaydi": "бу йиғимни бекор қилиб бўлмайди",
+		"kod hali yo‘q":             "код ҳали йўқ",
+		"yig‘im hali ochiq — admin yopgach kuryer qabul qiladi": "йиғим ҳали очиқ — админ ёпгач курер қабул қилади",
+		"kuryer qabul qilgach kod chiqadi": "курер қабул қилгач код чиқади",
+		"kod yaratib bo‘lmadi":      "код яратиб бўлмади",
+		"kod 4 xonali bo‘lishi kerak": "код 4 хонали бўлиши керак",
+		"kod topilmadi":             "код топилмади",
+		"bu kod bilan hali topshirib bo‘lmaydi": "бу код билан ҳали топшириб бўлмайди",
+		"bu kod boshqa MFYga tegishli": "бу код бошқа МФЙга тегишли",
+		"miqdor 0 dan katta bo‘lsin": "миқдор 0 дан катта бўлсин",
+		"kind in yoki out bo‘lsin":  "kind in ёки out бўлсин",
+		"omborda yetarli mahsulot yo‘q": "омборда етарли маҳсулот йўқ",
+		"telefon formati noto‘g‘ri": "телефон формати нотўғри",
+		"invalid token":             "токен яроқсиз",
+	},
+}
+
+func T(lang, msg string) string {
+	if lang == "uz" || msg == "" {
+		return msg
+	}
+	if m, ok := catalog[lang]; ok {
+		if tr, ok := m[msg]; ok {
+			return tr
+		}
+	}
+	const suffix = " yig‘imi endi ochiq emas"
+	if stringsHasSuffix(msg, suffix) {
+		title := msg[:len(msg)-len(suffix)]
+		if lang == "ru" {
+			return title + " больше не открыт"
+		}
+		if lang == "cyrl" {
+			return title + " йиғими энди очиқ эмас"
+		}
+	}
+	return msg
+}
+
+func stringsHasSuffix(s, suffix string) bool {
+	return len(s) >= len(suffix) && s[len(s)-len(suffix):] == suffix
+}

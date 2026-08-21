@@ -1,0 +1,16 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Capacitor — lokal qurilish
+android/.gradle/
+android/app/build/
+android/local.properties
+android/*.iml
+ios/App/build/
+ios/DerivedData/
