@@ -19,6 +19,7 @@ type Config struct {
 	JWTSecret            string
 	PaymentTimeout       time.Duration
 	HomeDeliveryFeeUZS int64
+	MinOrderUZS        int64
 	TelegramBotToken   string
 	DefaultOTP         string
 }
@@ -35,6 +36,7 @@ func Load() Config {
 		JWTSecret:          env("JWT_SECRET", "change-me-in-production"),
 		PaymentTimeout:     time.Duration(hours) * time.Hour,
 		HomeDeliveryFeeUZS: int64(intEnv("HOME_DELIVERY_FEE_UZS", 10000)),
+		MinOrderUZS:        int64(intEnv("MIN_ORDER_UZS", 100000)),
 		TelegramBotToken:   env("TELEGRAM_BOT_TOKEN", ""),
 		DefaultOTP:         env("DEFAULT_OTP", "11111"),
 	}

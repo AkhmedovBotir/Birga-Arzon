@@ -28,13 +28,21 @@ export function ProductCard({
         cardShadowStyle(),
       ]}
     >
-      <ImageSlider urls={urls} height={compact ? 128 : 168} unitLabel={item.unitLabel} />
+      <ImageSlider urls={urls} height={compact ? 120 : 156} unitLabel={item.unitLabel} />
       <Pressable onPress={onOpen} style={tw`p-2.5`}>
-        <Text style={tw`text-[13px] font-extrabold text-[#14221B]`} numberOfLines={2}>
+        {item.categoryName ? (
+          <Text style={tw`text-[10px] font-bold uppercase tracking-wide text-[#C4A35A] mb-1`} numberOfLines={1}>
+            {item.categoryName}
+          </Text>
+        ) : null}
+        <Text style={tw`text-[13px] font-extrabold text-[#14221B] leading-4`} numberOfLines={2}>
           {item.title}
         </Text>
         <Text style={tw`text-[#1B7A4A] font-extrabold text-sm mt-1`} numberOfLines={1}>
-          {formatCurrency(item.unitPriceUzs)} / {item.unitLabel}
+          {formatCurrency(item.unitPriceUzs)}
+        </Text>
+        <Text style={tw`text-[11px] text-[#5C6B63] mt-0.5`} numberOfLines={1}>
+          {t('cust_inStock', { n: item.stock })}
         </Text>
         <View style={tw`h-1.5 bg-[#F0E8D8] rounded-full mt-2 overflow-hidden`}>
           <View style={[tw`h-1.5 bg-[#0B3D2E] rounded-full`, { width: `${pct}%` as `${number}%` }]} />

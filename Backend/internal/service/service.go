@@ -127,6 +127,13 @@ func (a *App) Checkout(ctx context.Context, user *models.User, method string) (*
 	if len(cart) == 0 {
 		return nil, fmt.Errorf("savat bo‘sh")
 	}
+	var subtotal int64
+	for _, c := range cart {
+		subtotal += int64(c.Quantity) * c.UnitPriceUzs
+	}
+	if a.Cfg.MinOrderUZS > 0 && subtotal < a.Cfg.MinOrderUZS {
+		return nil, fmt.Errorf("minimal savdo %d so‘m. Savatingiz: %d so‘m", a.Cfg.MinOrderUZS, subtotal)
+	}
 
 	tx, err := a.Store.Pool.Begin(ctx)
 	if err != nil {
@@ -154,6 +161,10 @@ func (a *App) Checkout(ctx context.Context, user *models.User, method string) (*
 		}
 		if g == nil || g.Status != "open" {
 			return nil, fmt.Errorf("%s yig‘imi endi ochiq emas", c.Title)
+		}
+		remain := models.MaxSellQty(g.Stock, g.CurrentVolume)
+		if c.Quantity > remain {
+			return nil, fmt.Errorf("%s: ko‘pi bilan %d %s olish mumkin", c.Title, remain, g.UnitLabel)
 		}
 		if err := a.Store.InsertItemTx(ctx, tx, o.ID, models.OrderItem{
 			GroupBuyID: c.GroupBuyID, ProductID: g.ProductID, Title: g.Title, Quantity: c.Quantity,
@@ -256,7 +267,7 @@ func (a *App) CloseCollection(ctx context.Context, id string) error {
 	return nil
 }
 
-func (a *App) AcceptCollection(ctx context.Context, gbID string, mfyID *string) error {
+func (a *App) AcceptCollection(ctx context.Context, gbID string, regionID *string) error {
 	g, err := a.Store.GroupBuy(ctx, gbID)
 	if err != nil || g == nil {
 		return fmt.Errorf("yig‘im topilmadi")
@@ -274,12 +285,12 @@ func (a *App) AcceptCollection(ctx context.Context, gbID string, mfyID *string) 
 		return err
 	}
 	scope := ""
-	if mfyID != nil {
-		scope = strings.TrimSpace(*mfyID)
+	if regionID != nil {
+		scope = strings.TrimSpace(*regionID)
 	}
 	matched := 0
 	for _, o := range orders {
-		if scope != "" && (o.MfyID == nil || *o.MfyID != scope) {
+		if scope != "" && (o.RegionID == nil || *o.RegionID != scope) {
 			continue
 		}
 		matched++
@@ -320,7 +331,7 @@ func (a *App) AcceptCollection(ctx context.Context, gbID string, mfyID *string) 
 			fmt.Sprintf("Olish kodingiz: %s. Shu kod orqali mahsulotni oling.", code))
 	}
 	if scope != "" && matched == 0 {
-		return fmt.Errorf("bu MFYda qabul qiladigan buyurtma yo‘q")
+		return fmt.Errorf("bu viloyatda qabul qiladigan buyurtma yo‘q")
 	}
 	return nil
 }
@@ -402,7 +413,7 @@ func (a *App) uniqueCode(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("kod yaratib bo‘lmadi")
 }
 
-func (a *App) IssueByCode(ctx context.Context, code string, mfyID *string) (*models.Order, error) {
+func (a *App) IssueByCode(ctx context.Context, code string, regionID *string) (*models.Order, error) {
 	code = strings.TrimSpace(code)
 	if len(code) != 4 {
 		return nil, fmt.Errorf("kod 4 xonali bo‘lishi kerak")
@@ -417,9 +428,9 @@ func (a *App) IssueByCode(ctx context.Context, code string, mfyID *string) (*mod
 	if o.Status != "with_courier" {
 		return nil, fmt.Errorf("bu kod bilan hali topshirib bo‘lmaydi")
 	}
-	if mfyID != nil && strings.TrimSpace(*mfyID) != "" {
-		if o.MfyID == nil || *o.MfyID != strings.TrimSpace(*mfyID) {
-			return nil, fmt.Errorf("bu kod boshqa MFYga tegishli")
+	if regionID != nil && strings.TrimSpace(*regionID) != "" {
+		if o.RegionID == nil || *o.RegionID != strings.TrimSpace(*regionID) {
+			return nil, fmt.Errorf("bu kod boshqa viloyatga tegishli")
 		}
 	}
 	if err := a.Store.SetOrderStatus(ctx, o.ID, "issued"); err != nil {

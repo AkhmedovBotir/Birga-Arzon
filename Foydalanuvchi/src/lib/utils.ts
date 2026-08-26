@@ -25,6 +25,14 @@ export function cardShadowStyle(): ViewStyle {
 
 export { tw };
 
+/** Savat mahsulot ombor sonidan (stock) oshmasin. */
+export function maxOrderQty(stock: number, currentVolume = 0): number {
+  const s = Math.trunc(Number(stock));
+  const cur = Math.max(0, Math.trunc(Number(currentVolume)) || 0);
+  if (!Number.isFinite(s) || s <= 0) return 0;
+  return Math.max(0, s - cur);
+}
+
 export function formatCurrency(amount: number) {
   const loc = getLocale() === 'ru' ? 'ru-RU' : 'uz-UZ';
   return new Intl.NumberFormat(loc, {

@@ -10,6 +10,7 @@ export const APP_NAME = 'Birga Xarid';
 
 export const PAYMENT_TIMEOUT_HOURS = 4;
 export const HOME_DELIVERY_FEE_UZS = 10_000;
+export const MIN_ORDER_UZS = 100_000;
 export const PICKUP_CODE_LENGTH = 4;
 
 export const PAYMENT_PROVIDERS = ['click', 'payme', 'uzum', 'cash_on_delivery'] as const;

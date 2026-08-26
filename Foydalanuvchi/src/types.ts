@@ -57,16 +57,24 @@ export interface UserProfile {
   profileCompleted: boolean;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+}
+
 export interface GroupBuy {
   id: string;
   title: string;
   description: string;
   photoUrl?: string;
   photoUrls?: string[];
+  categoryId?: string | null;
+  categoryName?: string | null;
   unitLabel: string;
   unitPriceUzs: number;
   minVolume: number;
   currentVolume: number;
+  stock: number;
   status: CollectionStatus;
   cashOnDeliveryAllowed: boolean;
   paymentDeadlineAt?: string;
@@ -82,6 +90,7 @@ export interface CartItem {
   photoUrl?: string | null;
   minVolume: number;
   currentVolume: number;
+  stock: number;
   status: string;
 }
 

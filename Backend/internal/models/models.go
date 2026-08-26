@@ -50,8 +50,11 @@ type GroupBuy struct {
 	UnitPriceUzs           int64     `json:"unitPriceUzs"`
 	MinVolume              int       `json:"minVolume"`
 	CurrentVolume          int       `json:"currentVolume"`
+	Stock                  int       `json:"stock"`
 	Status                 string    `json:"status"`
 	CashOnDeliveryAllowed  bool      `json:"cashOnDeliveryAllowed"`
+	CategoryID             *string   `json:"categoryId,omitempty"`
+	CategoryName           *string   `json:"categoryName,omitempty"`
 	CreatedAt              time.Time `json:"createdAt"`
 }
 
@@ -62,9 +65,22 @@ type CartItem struct {
 	UnitPriceUzs int64  `json:"unitPriceUzs"`
 	Quantity     int    `json:"quantity"`
 	PhotoURL     *string `json:"photoUrl"`
-	MinVolume    int    `json:"minVolume"`
-	CurrentVolume int   `json:"currentVolume"`
-	Status       string `json:"status"`
+	MinVolume     int    `json:"minVolume"`
+	CurrentVolume int    `json:"currentVolume"`
+	Stock         int    `json:"stock"`
+	Status        string `json:"status"`
+}
+
+// MaxSellQty — savat/buyurtma mahsulot ombor sonidan (stock) oshmasin.
+func MaxSellQty(stock, currentVolume int) int {
+	if stock <= 0 {
+		return 0
+	}
+	n := stock - currentVolume
+	if n < 0 {
+		return 0
+	}
+	return n
 }
 
 type OrderItem struct {
@@ -86,6 +102,7 @@ type Order struct {
 	Status             string      `json:"status"`
 	PaymentDeadlineAt  *time.Time  `json:"paymentDeadlineAt"`
 	CityID             *string     `json:"cityId"`
+	RegionID           *string     `json:"regionId,omitempty"`
 	MfyID              *string     `json:"mfyId"`
 	DeliveryLat        *float64    `json:"deliveryLat"`
 	DeliveryLng        *float64    `json:"deliveryLng"`

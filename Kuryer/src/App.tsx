@@ -53,9 +53,9 @@ export default function App() {
             <Text style={tw`text-white font-extrabold text-base sm:text-lg`} numberOfLines={1}>
               {user.firstName ? `${user.firstName} ${user.lastName}`.trim() : t('cour_roleCourier')}
             </Text>
-            {user.mfyName ? (
+            {user.cityName ? (
               <Text style={tw`text-[#D5E6DC] text-xs mt-0.5`} numberOfLines={1}>
-                {[user.cityName, user.mfyName].filter(Boolean).join(' · ')}
+                {[user.regionName, user.cityName].filter(Boolean).join(' · ')}
               </Text>
             ) : null}
           </View>

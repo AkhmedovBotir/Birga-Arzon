@@ -3,7 +3,8 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useI18n } from '@/src/i18n';
 import { Button } from '@/src/components/ui/Base';
-import { formatCurrency, tw } from '@/src/lib/utils';
+import { QtyInput } from '@/src/components/ui/QtyInput';
+import { formatCurrency, maxOrderQty, tw } from '@/src/lib/utils';
 import type { GroupBuy } from '@/src/types';
 import { ImageSlider, photosOf } from './ImageSlider';
 
@@ -19,7 +20,8 @@ export function CollectionDetail({
   onAdd: (qty: number) => void;
 }) {
   const { t } = useI18n();
-  const [qty, setQty] = useState(1);
+  const maxQty = maxOrderQty(item.stock, item.currentVolume);
+  const [qty, setQty] = useState(maxQty < 1 ? 0 : 1);
   const pct = Math.min(100, Math.round((item.currentVolume / Math.max(1, item.minVolume)) * 100));
   const urls = photosOf(item);
 
@@ -33,17 +35,24 @@ export function CollectionDetail({
       <View style={tw`bg-white rounded-3xl overflow-hidden border border-[#E8DFD0]`}>
         <ImageSlider urls={urls} height={280} unitLabel={item.unitLabel} />
         <View style={tw`p-5`}>
-          <Text style={tw`text-[11px] font-bold uppercase tracking-[1.5px] text-[#C4A35A]`}>
-            {t('cust_detailHint')}
-          </Text>
+          {item.categoryName ? (
+            <Text style={tw`text-[11px] font-bold uppercase tracking-[1.5px] text-[#C4A35A]`}>
+              {item.categoryName}
+            </Text>
+          ) : (
+            <Text style={tw`text-[11px] font-bold uppercase tracking-[1.5px] text-[#C4A35A]`}>
+              {t('cust_detailHint')}
+            </Text>
+          )}
           <Text style={tw`text-2xl font-extrabold text-[#14221B] mt-1`}>{item.title}</Text>
           {item.description ? (
             <Text style={tw`text-[#5C6B63] mt-2 leading-6`}>{item.description}</Text>
           ) : null}
 
           <View style={tw`flex-row flex-wrap gap-2 mt-4`}>
-            <InfoChip label={t('cust_price')} value={`${formatCurrency(item.unitPriceUzs)} / ${item.unitLabel}`} />
+            <InfoChip label={t('cust_price')} value={formatCurrency(item.unitPriceUzs)} />
             <InfoChip label={t('cust_unit')} value={item.unitLabel} />
+            <InfoChip label={t('cust_inStockLabel')} value={String(item.stock)} />
             <InfoChip label={t('cust_goal')} value={`${item.minVolume} ${item.unitLabel}`} />
           </View>
 
@@ -55,25 +64,20 @@ export function CollectionDetail({
             {t('cust_gathered', { cur: item.currentVolume, unit: item.unitLabel, min: item.minVolume })}
           </Text>
 
-          <Text style={tw`text-sm font-bold text-[#14221B] mt-5 mb-2`}>{t('cust_qty')}</Text>
-          <View style={tw`flex-row items-center gap-3 mb-4`}>
-            <Pressable
-              onPress={() => setQty((n) => Math.max(1, n - 1))}
-              style={tw`w-11 h-11 rounded-xl bg-[#F6F1E8] items-center justify-center`}
-            >
-              <Text style={tw`text-xl font-bold text-[#0B3D2E]`}>−</Text>
-            </Pressable>
-            <Text style={tw`text-lg font-extrabold w-10 text-center`}>{qty}</Text>
-            <Pressable
-              onPress={() => setQty((n) => n + 1)}
-              style={tw`w-11 h-11 rounded-xl bg-[#F6F1E8] items-center justify-center`}
-            >
-              <Text style={tw`text-xl font-bold text-[#0B3D2E]`}>+</Text>
-            </Pressable>
-            <Text style={tw`text-[#5C6B63]`}>{item.unitLabel}</Text>
+          <Text style={tw`text-sm font-bold text-[#14221B] mt-5 mb-1`}>{t('cust_qty')}</Text>
+          <Text style={tw`text-xs text-[#5C6B63] mb-2`}>{t('cust_qtyHint')}</Text>
+          <Text style={tw`text-xs text-[#5C6B63] mb-2`}>
+            {t('cust_qtyMax', { n: maxQty })}
+          </Text>
+          <View style={tw`mb-4`}>
+            {maxQty < 1 ? (
+              <Text style={tw`text-sm text-red-700`}>{t('cust_qtyFull')}</Text>
+            ) : (
+              <QtyInput value={qty} min={1} max={maxQty} onChange={setQty} />
+            )}
           </View>
 
-          <Button disabled={busy} onPress={() => onAdd(qty)}>
+          <Button disabled={busy || maxQty < 1} onPress={() => onAdd(Math.min(qty, maxQty))}>
             {busy ? t('common_adding') : t('cust_addCart')}
           </Button>
         </View>

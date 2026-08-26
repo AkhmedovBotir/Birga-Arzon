@@ -20,8 +20,9 @@ export function ProductsScreen() {
   const [subcategoryId, setSubcategoryId] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [unitLabel, setUnitLabel] = useState('kg');
+  const [unitLabel, setUnitLabel] = useState('dona');
   const [price, setPrice] = useState('');
+  const [stock, setStock] = useState('1');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -55,8 +56,9 @@ export function ProductsScreen() {
     setSubcategoryId('');
     setName('');
     setDescription('');
-    setUnitLabel('kg');
+    setUnitLabel('dona');
     setPrice('');
+    setStock('1');
     setError(null);
   };
 
@@ -74,6 +76,7 @@ export function ProductsScreen() {
     setDescription(p.description);
     setUnitLabel(p.unitLabel);
     setPrice(String(p.unitPriceUzs));
+    setStock(String(p.stock ?? 0));
     setOpen(true);
   };
 
@@ -84,12 +87,14 @@ export function ProductsScreen() {
     }
     setBusy(true);
     setError(null);
+    const qty = Math.max(0, Math.trunc(Number(stock)) || 0);
     const body = {
       subcategoryId,
       name,
       description,
       unitLabel,
       unitPriceUzs: Number(price) || 0,
+      stock: qty,
       active: true,
     };
     try {
@@ -135,6 +140,7 @@ export function ProductsScreen() {
             <Th className="hidden lg:table-cell">{t('prod_category')}</Th>
             <Th className="hidden md:table-cell">{t('prod_sub')}</Th>
             <Th className="hidden sm:table-cell">{t('common_unit')}</Th>
+            <Th>{t('prod_stock')}</Th>
             <Th>{t('common_price')}</Th>
             <Th className="hidden md:table-cell">{t('common_status')}</Th>
             <Th className="text-right">{t('common_actions')}</Th>
@@ -150,6 +156,7 @@ export function ProductsScreen() {
               <Td className="hidden lg:table-cell">{p.categoryName}</Td>
               <Td className="hidden md:table-cell">{p.subcategoryName}</Td>
               <Td className="hidden sm:table-cell">{p.unitLabel}</Td>
+              <Td>{p.stock}</Td>
               <Td className="whitespace-nowrap">{formatCurrency(p.unitPriceUzs)}</Td>
               <Td className="hidden md:table-cell">
                 <span className={`text-xs font-bold px-2 py-1 rounded-lg ${p.active ? 'bg-brand-50 text-brand-800' : 'bg-danger-50 text-danger-500'}`}>
@@ -206,10 +213,12 @@ export function ProductsScreen() {
           />
           <TextField label={t('common_name')} value={name} onChange={setName} />
           <TextField label={t('common_description')} value={description} onChange={setDescription} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <TextField label={t('common_unit')} value={unitLabel} onChange={setUnitLabel} />
+            <TextField label={t('prod_stock')} value={stock} onChange={setStock} type="number" />
             <TextField label={t('prod_priceSom')} value={price} onChange={setPrice} type="number" />
           </div>
+          <p className="text-xs text-[#5C6B63] -mt-1">{t('prod_stockHint')}</p>
         </div>
       </Modal>
 

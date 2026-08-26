@@ -119,7 +119,10 @@ func (h *Handler) Products(w http.ResponseWriter, r *http.Request) {
 func productFromBody(body models.Product) models.Product {
 	body.Name = strings.TrimSpace(body.Name)
 	if body.UnitLabel == "" {
-		body.UnitLabel = "kg"
+		body.UnitLabel = "dona"
+	}
+	if body.Stock < 0 {
+		body.Stock = 0
 	}
 	body.Active = true
 	return body
@@ -148,7 +151,10 @@ func (h *Handler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	body.ID = chi.URLParam(r, "id")
 	if body.UnitLabel == "" {
-		body.UnitLabel = "kg"
+		body.UnitLabel = "dona"
+	}
+	if body.Stock < 0 {
+		body.Stock = 0
 	}
 	if body.SubcategoryID == "" {
 		existing, err := h.App.Store.Product(r.Context(), body.ID)

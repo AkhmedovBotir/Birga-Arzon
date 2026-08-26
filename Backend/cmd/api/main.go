@@ -110,6 +110,7 @@ func main() {
 				r.Use(h.Role("admin"))
 				r.Get("/stats", h.AdminStats)
 				r.Get("/users", h.AdminUsers)
+				r.Delete("/users/{id}", h.AdminDeleteUser)
 				r.Get("/couriers", h.AdminCouriers)
 				r.Post("/couriers", h.AdminCreateCourier)
 				r.Patch("/couriers/{id}", h.AdminUpdateCourier)

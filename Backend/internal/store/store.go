@@ -244,6 +244,77 @@ func (s *Store) DeleteCourier(ctx context.Context, id string) error {
 	return err
 }
 
+func (s *Store) DeleteCustomer(ctx context.Context, id string) error {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var n int
+	if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE id=$1 AND role='customer'`, id).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("mijoz topilmadi")
+	}
+
+	rows, err := tx.Query(ctx, `
+		SELECT DISTINCT oi.group_buy_id
+		FROM order_items oi
+		JOIN orders o ON o.id = oi.order_id
+		WHERE o.user_id=$1`, id)
+	if err != nil {
+		return err
+	}
+	var gbIDs []string
+	for rows.Next() {
+		var gid string
+		if err := rows.Scan(&gid); err != nil {
+			rows.Close()
+			return err
+		}
+		gbIDs = append(gbIDs, gid)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE group_buys SET created_by=NULL WHERE created_by=$1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE stock_moves SET created_by=NULL WHERE created_by=$1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM warehouse_leftovers WHERE order_id IN (SELECT id FROM orders WHERE user_id=$1)`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM payments WHERE order_id IN (SELECT id FROM orders WHERE user_id=$1)`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id=$1)`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM orders WHERE user_id=$1`, id); err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM users WHERE id=$1 AND role='customer'`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("mijoz topilmadi")
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	for _, gid := range gbIDs {
+		_, _ = s.RecalcVolume(ctx, gid)
+	}
+	return nil
+}
+
 func (s *Store) SaveOTP(ctx context.Context, phone, hash string, exp time.Time) error {
 	_, err := s.Pool.Exec(ctx, `INSERT INTO otp_codes (phone, code_hash, expires_at) VALUES ($1,$2,$3)`, phone, hash, exp)
 	return err
@@ -361,10 +432,16 @@ func (s *Store) DeleteMfy(ctx context.Context, id string) error {
 	return err
 }
 
+const gbSelect = `g.id, g.title, g.description, g.photo_url, COALESCE(g.photo_urls, '{}'), g.product_id, g.unit_label, g.unit_price_uzs, g.min_volume, g.current_volume, COALESCE(p.stock, 0), g.status, g.cash_on_delivery_allowed, g.created_at, s.category_id, c.name`
+const gbFrom = `group_buys g
+		LEFT JOIN products p ON p.id = g.product_id
+		LEFT JOIN subcategories s ON s.id = p.subcategory_id
+		LEFT JOIN categories c ON c.id = s.category_id`
+
 func scanGB(row pgx.Row) (*models.GroupBuy, error) {
 	g := &models.GroupBuy{}
 	err := row.Scan(&g.ID, &g.Title, &g.Description, &g.PhotoURL, &g.PhotoURLs, &g.ProductID, &g.UnitLabel, &g.UnitPriceUzs,
-		&g.MinVolume, &g.CurrentVolume, &g.Status, &g.CashOnDeliveryAllowed, &g.CreatedAt)
+		&g.MinVolume, &g.CurrentVolume, &g.Stock, &g.Status, &g.CashOnDeliveryAllowed, &g.CreatedAt, &g.CategoryID, &g.CategoryName)
 	if err != nil {
 		return nil, err
 	}
@@ -376,8 +453,9 @@ func scanGB(row pgx.Row) (*models.GroupBuy, error) {
 
 func (s *Store) GroupBuy(ctx context.Context, id string) (*models.GroupBuy, error) {
 	g, err := scanGB(s.Pool.QueryRow(ctx, `
-		SELECT id, title, description, photo_url, COALESCE(photo_urls, '{}'), product_id, unit_label, unit_price_uzs, min_volume, current_volume, status, cash_on_delivery_allowed, created_at
-		FROM group_buys WHERE id=$1`, id))
+		SELECT `+gbSelect+`
+		FROM `+gbFrom+`
+		WHERE g.id=$1`, id))
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -385,13 +463,13 @@ func (s *Store) GroupBuy(ctx context.Context, id string) (*models.GroupBuy, erro
 }
 
 func (s *Store) ListGroupBuys(ctx context.Context, status string) ([]models.GroupBuy, error) {
-	q := `SELECT id, title, description, photo_url, COALESCE(photo_urls, '{}'), product_id, unit_label, unit_price_uzs, min_volume, current_volume, status, cash_on_delivery_allowed, created_at FROM group_buys`
+	q := `SELECT ` + gbSelect + ` FROM ` + gbFrom
 	args := []any{}
 	if status != "" {
-		q += ` WHERE status=$1`
+		q += ` WHERE g.status=$1`
 		args = append(args, status)
 	}
-	q += ` ORDER BY created_at DESC`
+	q += ` ORDER BY g.created_at DESC`
 	rows, err := s.Pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
@@ -468,8 +546,10 @@ func (s *Store) RecalcVolume(ctx context.Context, id string) (int, error) {
 
 func (s *Store) Cart(ctx context.Context, userID string) ([]models.CartItem, error) {
 	rows, err := s.Pool.Query(ctx, `
-		SELECT c.group_buy_id, g.title, g.unit_label, g.unit_price_uzs, c.quantity, g.photo_url, g.min_volume, g.current_volume, g.status
-		FROM cart_items c JOIN group_buys g ON g.id=c.group_buy_id
+		SELECT c.group_buy_id, g.title, g.unit_label, g.unit_price_uzs, c.quantity, g.photo_url, g.min_volume, g.current_volume, COALESCE(p.stock, 0), g.status
+		FROM cart_items c
+		JOIN group_buys g ON g.id=c.group_buy_id
+		LEFT JOIN products p ON p.id=g.product_id
 		WHERE c.user_id=$1 ORDER BY c.updated_at DESC`, userID)
 	if err != nil {
 		return nil, err
@@ -478,7 +558,7 @@ func (s *Store) Cart(ctx context.Context, userID string) ([]models.CartItem, err
 	var out []models.CartItem
 	for rows.Next() {
 		var it models.CartItem
-		if err := rows.Scan(&it.GroupBuyID, &it.Title, &it.UnitLabel, &it.UnitPriceUzs, &it.Quantity, &it.PhotoURL, &it.MinVolume, &it.CurrentVolume, &it.Status); err != nil {
+		if err := rows.Scan(&it.GroupBuyID, &it.Title, &it.UnitLabel, &it.UnitPriceUzs, &it.Quantity, &it.PhotoURL, &it.MinVolume, &it.CurrentVolume, &it.Stock, &it.Status); err != nil {
 			return nil, err
 		}
 		out = append(out, it)
@@ -486,10 +566,41 @@ func (s *Store) Cart(ctx context.Context, userID string) ([]models.CartItem, err
 	if out == nil {
 		out = []models.CartItem{}
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i, it := range out {
+		maxQty := models.MaxSellQty(it.Stock, it.CurrentVolume)
+		if it.Quantity > maxQty {
+			if err := s.UpsertCart(ctx, userID, it.GroupBuyID, maxQty, false); err != nil {
+				return nil, err
+			}
+			out[i].Quantity = maxQty
+		}
+	}
+	return out, nil
 }
 
-func (s *Store) UpsertCart(ctx context.Context, userID, gbID string, qty int) error {
+func (s *Store) CartItemQty(ctx context.Context, userID, gbID string) (int, error) {
+	var q int
+	err := s.Pool.QueryRow(ctx, `SELECT quantity FROM cart_items WHERE user_id=$1 AND group_buy_id=$2`, userID, gbID).Scan(&q)
+	if err == pgx.ErrNoRows {
+		return 0, nil
+	}
+	return q, err
+}
+
+func (s *Store) UpsertCart(ctx context.Context, userID, gbID string, qty int, add bool) error {
+	if add {
+		if qty <= 0 {
+			qty = 1
+		}
+		_, err := s.Pool.Exec(ctx, `
+			INSERT INTO cart_items (user_id, group_buy_id, quantity) VALUES ($1,$2,$3)
+			ON CONFLICT (user_id, group_buy_id)
+			DO UPDATE SET quantity=cart_items.quantity + EXCLUDED.quantity, updated_at=now()`, userID, gbID, qty)
+		return err
+	}
 	if qty <= 0 {
 		_, err := s.Pool.Exec(ctx, `DELETE FROM cart_items WHERE user_id=$1 AND group_buy_id=$2`, userID, gbID)
 		return err

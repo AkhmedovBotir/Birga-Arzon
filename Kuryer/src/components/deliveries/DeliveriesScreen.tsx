@@ -19,13 +19,13 @@ export function DeliveriesScreen({ onAccepted }: { onAccepted?: () => void }) {
 
   const load = useCallback(async (silent = false) => {
     if (!token) return;
-    const d = await apiRequest<{ waiting: Waiting[]; needArea?: boolean; area?: { regionName?: string; cityName?: string; mfyName?: string } }>(
+    const d = await apiRequest<{ waiting: Waiting[]; needArea?: boolean; area?: { regionName?: string; cityName?: string } }>(
       '/api/courier/deliveries',
       { token, silent },
     );
     setWaiting(d.waiting || []);
     setNeedArea(Boolean(d.needArea));
-    setAreaName([d.area?.regionName, d.area?.cityName, d.area?.mfyName].filter(Boolean).join(' · '));
+    setAreaName([d.area?.regionName, d.area?.cityName].filter(Boolean).join(' · '));
   }, [token]);
 
   useEffect(() => {

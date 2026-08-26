@@ -41,14 +41,14 @@ func ptrID(s string) *string {
 	return &s
 }
 
-func courierMfy(u *models.User) *string {
+func courierRegion(u *models.User) *string {
 	if u == nil || u.Role != "courier" {
 		return nil
 	}
-	if u.MfyID == nil || strings.TrimSpace(*u.MfyID) == "" {
+	if u.RegionID == nil || strings.TrimSpace(*u.RegionID) == "" {
 		return nil
 	}
-	return u.MfyID
+	return u.RegionID
 }
 
 func (h *Handler) Auth(next http.Handler) http.Handler {
@@ -319,6 +319,7 @@ func (h *Handler) PutCart(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		GroupBuyID string `json:"groupBuyId"`
 		Quantity   int    `json:"quantity"`
+		Add        bool   `json:"add"`
 	}
 	if err := httpx.DecodeLoose(r, &body); err != nil || body.GroupBuyID == "" {
 		httpx.Error(w, 400, "Noto‘g‘ri so‘rov")
@@ -329,11 +330,33 @@ func (h *Handler) PutCart(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, 404, "Yig‘im topilmadi")
 		return
 	}
-	if g.Status != "open" && body.Quantity > 0 {
+	if g.Status != "open" && (body.Quantity > 0 || body.Add) {
 		httpx.Error(w, 400, "Yig‘im yopilgan")
 		return
 	}
-	if err := h.App.Store.UpsertCart(r.Context(), UserFrom(r.Context()).ID, body.GroupBuyID, body.Quantity); err != nil {
+	userID := UserFrom(r.Context()).ID
+	maxQty := models.MaxSellQty(g.Stock, g.CurrentVolume)
+	cur, err := h.App.Store.CartItemQty(r.Context(), userID, body.GroupBuyID)
+	if err != nil {
+		httpx.Error(w, 500, err.Error())
+		return
+	}
+	qty := body.Quantity
+	if body.Add {
+		addQty := body.Quantity
+		if addQty <= 0 {
+			addQty = 1
+		}
+		if cur >= maxQty {
+			httpx.Error(w, 400, fmt.Sprintf("Ko‘pi bilan %d %s qo‘shish mumkin", maxQty, g.UnitLabel))
+			return
+		}
+		qty = cur + addQty
+	}
+	if qty > maxQty {
+		qty = maxQty
+	}
+	if err := h.App.Store.UpsertCart(r.Context(), userID, body.GroupBuyID, qty, false); err != nil {
 		httpx.Error(w, 400, err.Error())
 		return
 	}
@@ -550,6 +573,20 @@ func (h *Handler) AdminDeleteMfy(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, 200, map[string]any{"ok": true})
 }
 
+func (h *Handler) AdminDeleteUser(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	u, err := h.App.Store.UserByID(r.Context(), id)
+	if err != nil || u == nil || u.Role != "customer" {
+		httpx.Error(w, 404, "Mijoz topilmadi")
+		return
+	}
+	if err := h.App.Store.DeleteCustomer(r.Context(), id); err != nil {
+		httpx.Error(w, 400, err.Error())
+		return
+	}
+	httpx.JSON(w, 200, map[string]any{"ok": true})
+}
+
 func (h *Handler) AdminUsers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	items, err := h.App.Store.ListUsers(r.Context(), q.Get("cityId"), q.Get("mfyId"), q.Get("q"))
@@ -589,8 +626,8 @@ func (h *Handler) AdminStats(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Issue(w http.ResponseWriter, r *http.Request) {
 	u := UserFrom(r.Context())
-	if u != nil && u.Role == "courier" && courierMfy(u) == nil {
-		httpx.Error(w, 400, "Kuryerga MFY biriktirilmagan. Admin viloyat, tuman va MFY ni belgilasin.")
+	if u != nil && u.Role == "courier" && courierRegion(u) == nil {
+		httpx.Error(w, 400, "Kuryerga viloyat biriktirilmagan. Admin viloyat va tumanni belgilasin.")
 		return
 	}
 	var body struct {
@@ -600,7 +637,7 @@ func (h *Handler) Issue(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, 400, "Kod kerak")
 		return
 	}
-	o, err := h.App.IssueByCode(r.Context(), body.Code, courierMfy(UserFrom(r.Context())))
+	o, err := h.App.IssueByCode(r.Context(), body.Code, courierRegion(UserFrom(r.Context())))
 	if err != nil {
 		httpx.Error(w, 400, err.Error())
 		return
@@ -610,11 +647,11 @@ func (h *Handler) Issue(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) CourierDeliveries(w http.ResponseWriter, r *http.Request) {
 	u := UserFrom(r.Context())
-	mfy := courierMfy(u)
-	needArea := u != nil && u.Role == "courier" && mfy == nil
-	mfyID := ""
-	if mfy != nil {
-		mfyID = *mfy
+	region := courierRegion(u)
+	needArea := u != nil && u.Role == "courier" && region == nil
+	regionID := ""
+	if region != nil {
+		regionID = *region
 	}
 
 	area := map[string]any{}
@@ -624,9 +661,6 @@ func (h *Handler) CourierDeliveries(w http.ResponseWriter, r *http.Request) {
 		}
 		if u.CityName != nil {
 			area["cityName"] = *u.CityName
-		}
-		if u.MfyName != nil {
-			area["mfyName"] = *u.MfyName
 		}
 	}
 
@@ -641,7 +675,7 @@ func (h *Handler) CourierDeliveries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	openOrders, err := h.App.Store.ListOrdersByMfy(r.Context(), "collecting", mfyID)
+	openOrders, err := h.App.Store.ListOrdersByRegion(r.Context(), "collecting", regionID)
 	if err != nil {
 		httpx.Error(w, 500, err.Error())
 		return
@@ -661,7 +695,7 @@ func (h *Handler) CourierDeliveries(w http.ResponseWriter, r *http.Request) {
 		orders, _ := h.App.Store.OrdersForGroupBuy(r.Context(), g.ID)
 		mine := []models.Order{}
 		for _, o := range orders {
-			if mfyID != "" && (o.MfyID == nil || *o.MfyID != mfyID) {
+			if regionID != "" && (o.RegionID == nil || *o.RegionID != regionID) {
 				continue
 			}
 			if o.Status != "awaiting_courier" && o.Status != "collecting" {
@@ -674,7 +708,7 @@ func (h *Handler) CourierDeliveries(w http.ResponseWriter, r *http.Request) {
 		}
 		waiting = append(waiting, map[string]any{"collection": g, "orders": mine})
 	}
-	active, err := h.App.Store.ListOrdersByMfy(r.Context(), "with_courier", mfyID)
+	active, err := h.App.Store.ListOrdersByRegion(r.Context(), "with_courier", regionID)
 	if err != nil {
 		httpx.Error(w, 500, err.Error())
 		return
@@ -690,12 +724,12 @@ func (h *Handler) CourierDeliveries(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) CourierAccept(w http.ResponseWriter, r *http.Request) {
 	u := UserFrom(r.Context())
-	if u != nil && u.Role == "courier" && courierMfy(u) == nil {
-		httpx.Error(w, 400, "Kuryerga MFY biriktirilmagan. Admin viloyat, tuman va MFY ni belgilasin.")
+	if u != nil && u.Role == "courier" && courierRegion(u) == nil {
+		httpx.Error(w, 400, "Kuryerga viloyat biriktirilmagan. Admin viloyat va tumanni belgilasin.")
 		return
 	}
 	id := chi.URLParam(r, "id")
-	if err := h.App.AcceptCollection(r.Context(), id, courierMfy(u)); err != nil {
+	if err := h.App.AcceptCollection(r.Context(), id, courierRegion(u)); err != nil {
 		httpx.Error(w, 400, err.Error())
 		return
 	}
@@ -1022,8 +1056,8 @@ func (h *Handler) AdminCreateCourier(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, 400, "Ism va familiya kerak")
 		return
 	}
-	if strings.TrimSpace(body.MfyID) == "" || strings.TrimSpace(body.CityID) == "" || strings.TrimSpace(body.RegionID) == "" {
-		httpx.Error(w, 400, "Viloyat, tuman va MFY kerak")
+	if strings.TrimSpace(body.CityID) == "" || strings.TrimSpace(body.RegionID) == "" {
+		httpx.Error(w, 400, "Viloyat va tuman kerak")
 		return
 	}
 	if len(strings.TrimSpace(body.Password)) < 6 {
@@ -1039,7 +1073,7 @@ func (h *Handler) AdminCreateCourier(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, 500, "Parolni yozib bo‘lmadi")
 		return
 	}
-	u, err := h.App.Store.CreateStaff(r.Context(), "courier", phone, first, last, hash, ptrID(body.RegionID), ptrID(body.CityID), ptrID(body.MfyID))
+	u, err := h.App.Store.CreateStaff(r.Context(), "courier", phone, first, last, hash, ptrID(body.RegionID), ptrID(body.CityID), nil)
 	if err != nil {
 		if phoneBusy(err) {
 			httpx.Error(w, 400, "Bu telefon band")
@@ -1090,18 +1124,14 @@ func (h *Handler) AdminUpdateCourier(w http.ResponseWriter, r *http.Request) {
 	}
 	regionID := ptrID(body.RegionID)
 	cityID := ptrID(body.CityID)
-	mfyID := ptrID(body.MfyID)
 	if regionID == nil {
 		regionID = u.RegionID
 	}
 	if cityID == nil {
 		cityID = u.CityID
 	}
-	if mfyID == nil {
-		mfyID = u.MfyID
-	}
-	if regionID == nil || cityID == nil || mfyID == nil {
-		httpx.Error(w, 400, "Viloyat, tuman va MFY kerak")
+	if regionID == nil || cityID == nil {
+		httpx.Error(w, 400, "Viloyat va tuman kerak")
 		return
 	}
 	if existing, _ := h.App.Store.UserByPhone(r.Context(), phone); existing != nil && existing.ID != id {
@@ -1121,7 +1151,7 @@ func (h *Handler) AdminUpdateCourier(w http.ResponseWriter, r *http.Request) {
 		}
 		hash = &hsh
 	}
-	if err := h.App.Store.UpdateStaff(r.Context(), id, first, last, phone, regionID, cityID, mfyID, hash); err != nil {
+	if err := h.App.Store.UpdateStaff(r.Context(), id, first, last, phone, regionID, cityID, nil, hash); err != nil {
 		if phoneBusy(err) {
 			httpx.Error(w, 400, "Bu telefon band")
 			return

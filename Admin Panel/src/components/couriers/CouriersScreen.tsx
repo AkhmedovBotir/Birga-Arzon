@@ -5,7 +5,7 @@ import { Alert, Btn, DataTable, IconBtn, Modal, SelectField, Td, TextField, Th }
 import { useAuth } from '@/src/context/AuthContext';
 import { apiRequest } from '@/src/lib/api';
 import { formatFullUzDisplay, formatNationalDisplay, nationalDigitsFromAny, toFullUzE164, UZ_NATIONAL_LEN } from '@/src/lib/phoneUz';
-import type { City, Mfy, Region, UserProfile } from '@/src/types';
+import type { City, Region, UserProfile } from '@/src/types';
 
 export function CouriersScreen() {
   const { t } = useI18n();
@@ -13,7 +13,6 @@ export function CouriersScreen() {
   const [items, setItems] = useState<UserProfile[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
   const [cities, setCities] = useState<City[]>([]);
-  const [mfys, setMfys] = useState<Mfy[]>([]);
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<UserProfile | null>(null);
   const [remove, setRemove] = useState<UserProfile | null>(null);
@@ -23,7 +22,6 @@ export function CouriersScreen() {
   const [password, setPassword] = useState('');
   const [regionId, setRegionId] = useState('');
   const [cityId, setCityId] = useState('');
-  const [mfyId, setMfyId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -35,7 +33,9 @@ export function CouriersScreen() {
 
   useEffect(() => {
     void load();
-    void apiRequest<{ items: Region[] }>('/api/regions').then((d) => setRegions(d.items || []));
+    void apiRequest<{ items: Region[] }>('/api/regions')
+      .then((d) => setRegions(d.items || []))
+      .catch((e) => setError(errText(e)));
   }, [load]);
 
   useEffect(() => {
@@ -43,16 +43,18 @@ export function CouriersScreen() {
       setCities([]);
       return;
     }
-    void apiRequest<{ items: City[] }>(`/api/regions/${regionId}/cities`).then((d) => setCities(d.items || []));
+    let cancelled = false;
+    void apiRequest<{ items: City[] }>(`/api/regions/${regionId}/cities`)
+      .then((d) => {
+        if (!cancelled) setCities(d.items || []);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(errText(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [regionId]);
-
-  useEffect(() => {
-    if (!cityId) {
-      setMfys([]);
-      return;
-    }
-    void apiRequest<{ items: Mfy[] }>(`/api/cities/${cityId}/mfys`).then((d) => setMfys(d.items || []));
-  }, [cityId]);
 
   const reset = () => {
     setEdit(null);
@@ -62,7 +64,6 @@ export function CouriersScreen() {
     setPassword('');
     setRegionId('');
     setCityId('');
-    setMfyId('');
     setError(null);
   };
 
@@ -80,7 +81,6 @@ export function CouriersScreen() {
     setPassword('');
     setRegionId(u.regionId || '');
     setCityId(u.cityId || '');
-    setMfyId(u.mfyId || '');
     setOpen(true);
   };
 
@@ -94,7 +94,7 @@ export function CouriersScreen() {
       setError(t('cour_phoneBad'));
       return;
     }
-    if (!regionId || !cityId || !mfyId) {
+    if (!regionId || !cityId) {
       setError(t('cour_needArea'));
       return;
     }
@@ -114,7 +114,6 @@ export function CouriersScreen() {
       phone: toFullUzE164(phoneNational),
       regionId,
       cityId,
-      mfyId,
     };
     if (password.trim()) body.password = password.trim();
     try {
@@ -170,8 +169,8 @@ export function CouriersScreen() {
               </Td>
               <Td className="whitespace-nowrap">{formatFullUzDisplay(u.phone || u.phoneMasked || '')}</Td>
               <Td className="hidden sm:table-cell text-[#5C6B63]">
-                {[u.regionName, u.cityName, u.mfyName].filter(Boolean).join(' · ')
-                  || (u.mfyId || u.cityId || u.regionId ? t('common_assigned') : t('common_notAssigned'))}
+                {[u.regionName, u.cityName].filter(Boolean).join(' · ')
+                  || (u.cityId || u.regionId ? t('common_assigned') : t('common_notAssigned'))}
               </Td>
               <Td className="text-right whitespace-nowrap">
                 <IconBtn title={t('common_edit')} onClick={() => openEdit(u)}>
@@ -205,7 +204,7 @@ export function CouriersScreen() {
             <Btn variant="outline" onClick={() => { setOpen(false); reset(); }}>
               {t('common_cancel')}
             </Btn>
-            <Btn disabled={busy || !regionId || !cityId || !mfyId} onClick={() => void save()}>
+            <Btn disabled={busy} onClick={() => void save()}>
               {busy ? t('common_saving') : t('common_save')}
             </Btn>
           </>
@@ -228,30 +227,23 @@ export function CouriersScreen() {
               />
             </div>
           </label>
+          <p className="text-xs text-[#5C6B63]">{t('cour_areaHint')}</p>
           <SelectField
             label={t('common_region')}
             value={regionId}
             onChange={(v) => {
               setRegionId(v);
               setCityId('');
-              setMfyId('');
+              setCities([]);
             }}
             options={[{ label: t('common_select'), value: '' }, ...regions.map((r) => ({ label: r.name, value: r.id }))]}
           />
+          {regionId && cities.length === 0 ? <p className="text-xs text-amber-800">{t('cour_noCities')}</p> : null}
           <SelectField
             label={t('common_city')}
             value={cityId}
-            onChange={(v) => {
-              setCityId(v);
-              setMfyId('');
-            }}
+            onChange={setCityId}
             options={[{ label: regionId ? t('common_select') : t('common_selectRegionFirst'), value: '' }, ...cities.map((c) => ({ label: c.name, value: c.id }))]}
-          />
-          <SelectField
-            label={t('common_mfy')}
-            value={mfyId}
-            onChange={setMfyId}
-            options={[{ label: cityId ? t('common_select') : t('common_selectCityFirst'), value: '' }, ...mfys.map((m) => ({ label: m.name, value: m.id }))]}
           />
           <TextField
             label={edit ? t('common_newPasswordOptional') : t('common_password')}

@@ -172,9 +172,9 @@ func (s *Store) CreateProduct(ctx context.Context, p models.Product) (*models.Pr
 func (s *Store) UpdateProduct(ctx context.Context, p models.Product) error {
 	_, err := s.Pool.Exec(ctx, `
 		UPDATE products SET subcategory_id=$2, name=$3, description=$4, unit_label=$5, unit_price_uzs=$6,
-			photo_url=$7, active=$8, updated_at=now()
+			photo_url=$7, active=$8, stock=$9, updated_at=now()
 		WHERE id=$1`,
-		p.ID, p.SubcategoryID, p.Name, p.Description, p.UnitLabel, p.UnitPriceUzs, p.PhotoURL, p.Active)
+		p.ID, p.SubcategoryID, p.Name, p.Description, p.UnitLabel, p.UnitPriceUzs, p.PhotoURL, p.Active, p.Stock)
 	return err
 }
 

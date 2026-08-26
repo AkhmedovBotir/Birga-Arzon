@@ -13,12 +13,19 @@ import {
 } from 'react-native';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import { useI18n } from '@/src/i18n';
+import { apiOrigin } from '@/src/lib/api';
 import { tw } from '@/src/lib/utils';
+
+function absUrl(u: string) {
+  if (/^https?:\/\//i.test(u) || u.startsWith('data:')) return u;
+  const origin = apiOrigin();
+  return `${origin}${u.startsWith('/') ? u : `/${u}`}`;
+}
 
 export function photosOf(g: { photoUrls?: string[]; photoUrl?: string | null }) {
   const list = g.photoUrls?.filter(Boolean) ?? [];
-  if (list.length) return list;
-  return g.photoUrl ? [g.photoUrl] : [];
+  const raw = list.length ? list : g.photoUrl ? [g.photoUrl] : [];
+  return raw.map(absUrl);
 }
 
 function Pager({

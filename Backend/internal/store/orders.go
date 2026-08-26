@@ -29,10 +29,13 @@ func (s *Store) InsertItemTx(ctx context.Context, tx pgx.Tx, orderID string, it 
 func (s *Store) LockGroupBuy(ctx context.Context, tx pgx.Tx, id string) (*models.GroupBuy, error) {
 	g := &models.GroupBuy{}
 	err := tx.QueryRow(ctx, `
-		SELECT id, title, description, photo_url, product_id, unit_label, unit_price_uzs, min_volume, current_volume, status, cash_on_delivery_allowed, created_at
-		FROM group_buys WHERE id=$1 FOR UPDATE`, id).Scan(
+		SELECT g.id, g.title, g.description, g.photo_url, g.product_id, g.unit_label, g.unit_price_uzs,
+		       g.min_volume, g.current_volume, COALESCE(p.stock, 0), g.status, g.cash_on_delivery_allowed, g.created_at
+		FROM group_buys g
+		LEFT JOIN products p ON p.id = g.product_id
+		WHERE g.id=$1 FOR UPDATE OF g`, id).Scan(
 		&g.ID, &g.Title, &g.Description, &g.PhotoURL, &g.ProductID, &g.UnitLabel, &g.UnitPriceUzs,
-		&g.MinVolume, &g.CurrentVolume, &g.Status, &g.CashOnDeliveryAllowed, &g.CreatedAt)
+		&g.MinVolume, &g.CurrentVolume, &g.Stock, &g.Status, &g.CashOnDeliveryAllowed, &g.CreatedAt)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -70,11 +73,13 @@ func (s *Store) scanOrder(ctx context.Context, q interface {
 	var fn, ln, phone string
 	err := q.QueryRow(ctx, `
 		SELECT o.id, o.user_id, o.delivery_method, o.delivery_fee_uzs, o.payment_provider, o.status,
-		       o.pickup_code, o.payment_deadline_at, o.city_id, o.mfy_id, o.delivery_lat, o.delivery_lng,
+		       o.pickup_code, o.payment_deadline_at, o.city_id, ct.region_id, o.mfy_id, o.delivery_lat, o.delivery_lng,
 		       o.delivery_address, o.created_at, u.first_name, u.last_name, u.phone
-		FROM orders o JOIN users u ON u.id=o.user_id `+where, args...).Scan(
+		FROM orders o
+		JOIN users u ON u.id=o.user_id
+		LEFT JOIN cities ct ON ct.id = o.city_id `+where, args...).Scan(
 		&o.ID, &o.UserID, &o.DeliveryMethod, &o.DeliveryFeeUzs, &o.PaymentProvider, &o.Status,
-		&code, &o.PaymentDeadlineAt, &o.CityID, &o.MfyID, &o.DeliveryLat, &o.DeliveryLng,
+		&code, &o.PaymentDeadlineAt, &o.CityID, &o.RegionID, &o.MfyID, &o.DeliveryLat, &o.DeliveryLng,
 		&o.DeliveryAddress, &o.CreatedAt, &fn, &ln, &phone,
 	)
 	if err == pgx.ErrNoRows {
@@ -186,17 +191,35 @@ func (s *Store) ListOrders(ctx context.Context, status string) ([]models.Order, 
 	return out, nil
 }
 
-func (s *Store) ListOrdersByMfy(ctx context.Context, status, mfyID string) ([]models.Order, error) {
-	if mfyID == "" {
+func (s *Store) ListOrdersByCity(ctx context.Context, status, cityID string) ([]models.Order, error) {
+	if cityID == "" {
 		return s.ListOrders(ctx, status)
 	}
-	q := `SELECT id FROM orders WHERE mfy_id=$1`
-	args := []any{mfyID}
+	q := `SELECT id FROM orders WHERE city_id=$1`
+	args := []any{cityID}
 	if status != "" {
 		q += ` AND status=$2`
 		args = append(args, status)
 	}
 	q += ` ORDER BY created_at DESC LIMIT 200`
+	return s.listOrdersQuery(ctx, q, args...)
+}
+
+func (s *Store) ListOrdersByRegion(ctx context.Context, status, regionID string) ([]models.Order, error) {
+	if regionID == "" {
+		return s.ListOrders(ctx, status)
+	}
+	q := `SELECT o.id FROM orders o JOIN cities c ON c.id=o.city_id WHERE c.region_id=$1`
+	args := []any{regionID}
+	if status != "" {
+		q += ` AND o.status=$2`
+		args = append(args, status)
+	}
+	q += ` ORDER BY o.created_at DESC LIMIT 200`
+	return s.listOrdersQuery(ctx, q, args...)
+}
+
+func (s *Store) listOrdersQuery(ctx context.Context, q string, args ...any) ([]models.Order, error) {
 	rows, err := s.Pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
