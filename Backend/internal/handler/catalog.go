@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"jamaoxarid/backend/internal/httpx"
@@ -128,8 +129,62 @@ func productFromBody(body models.Product) models.Product {
 	return body
 }
 
+func (h *Handler) readProductForm(r *http.Request) models.Product {
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		_ = r.ParseForm()
+	}
+	price, _ := strconv.ParseInt(firstVal(r, "unitPriceUzs"), 10, 64)
+	stock, _ := strconv.Atoi(firstVal(r, "stock"))
+	p := models.Product{
+		SubcategoryID: strings.TrimSpace(firstVal(r, "subcategoryId")),
+		Name:          strings.TrimSpace(firstVal(r, "name")),
+		Description:   firstVal(r, "description"),
+		UnitLabel:     firstVal(r, "unitLabel"),
+		UnitPriceUzs:  price,
+		Stock:         stock,
+		Active:        true,
+	}
+	if url := h.readSinglePhoto(r, "photo"); url != "" {
+		p.PhotoURL = &url
+	} else if keep := strings.TrimSpace(firstVal(r, "keepPhoto")); keep != "" {
+		p.PhotoURL = &keep
+	}
+	return productFromBody(p)
+}
+
+func (h *Handler) readSinglePhoto(r *http.Request, field string) string {
+	f, hdr, err := r.FormFile(field)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	url, err := h.saveUpload(f, hdr.Filename)
+	if err != nil {
+		return ""
+	}
+	return url
+}
+
 func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	var body models.Product
+	if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
+		p := h.readProductForm(r)
+		if p.SubcategoryID == "" || p.Name == "" {
+			httpx.Error(w, 400, "Subkategoriya va nom kerak")
+			return
+		}
+		if p.PhotoURL == nil {
+			httpx.Error(w, 400, "mahsulot rasmini yuklang")
+			return
+		}
+		created, err := h.App.Store.CreateProduct(r.Context(), p)
+		if err != nil {
+			httpx.Error(w, 400, err.Error())
+			return
+		}
+		httpx.JSON(w, 200, created)
+		return
+	}
 	if err := httpx.DecodeLoose(r, &body); err != nil || body.SubcategoryID == "" || strings.TrimSpace(body.Name) == "" {
 		httpx.Error(w, 400, "Subkategoriya va nom kerak")
 		return
@@ -144,12 +199,39 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	existing, err := h.App.Store.Product(r.Context(), id)
+	if err != nil || existing == nil {
+		httpx.Error(w, 404, "Mahsulot topilmadi")
+		return
+	}
 	var body models.Product
+	if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
+		p := h.readProductForm(r)
+		if p.Name == "" {
+			httpx.Error(w, 400, "Nom kerak")
+			return
+		}
+		p.ID = id
+		if p.SubcategoryID == "" {
+			p.SubcategoryID = existing.SubcategoryID
+		}
+		p.Active = existing.Active
+		if p.PhotoURL == nil {
+			p.PhotoURL = existing.PhotoURL
+		}
+		if err := h.App.Store.UpdateProduct(r.Context(), p); err != nil {
+			httpx.Error(w, 400, err.Error())
+			return
+		}
+		httpx.JSON(w, 200, map[string]any{"ok": true})
+		return
+	}
 	if err := httpx.DecodeLoose(r, &body); err != nil || strings.TrimSpace(body.Name) == "" {
 		httpx.Error(w, 400, "Nom kerak")
 		return
 	}
-	body.ID = chi.URLParam(r, "id")
+	body.ID = id
 	if body.UnitLabel == "" {
 		body.UnitLabel = "dona"
 	}
@@ -157,13 +239,11 @@ func (h *Handler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		body.Stock = 0
 	}
 	if body.SubcategoryID == "" {
-		existing, err := h.App.Store.Product(r.Context(), body.ID)
-		if err != nil || existing == nil {
-			httpx.Error(w, 404, "Mahsulot topilmadi")
-			return
-		}
 		body.SubcategoryID = existing.SubcategoryID
 		body.Active = existing.Active
+	}
+	if body.PhotoURL == nil {
+		body.PhotoURL = existing.PhotoURL
 	}
 	if err := h.App.Store.UpdateProduct(r.Context(), body); err != nil {
 		httpx.Error(w, 400, err.Error())

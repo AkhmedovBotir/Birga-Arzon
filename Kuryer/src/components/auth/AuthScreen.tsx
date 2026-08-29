@@ -12,8 +12,8 @@ import { tw } from '@/src/lib/utils';
 export function AuthScreen({ role }: { role: 'admin' | 'courier' }) {
   const { signInWithPassword } = useAuth();
   const { t } = useI18n();
-  const [phoneNational, setPhoneNational] = useState(role === 'admin' ? '901111111' : '902222222');
-  const [password, setPassword] = useState(role === 'admin' ? 'Admin123!' : 'Courier123!');
+  const [phoneNational, setPhoneNational] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

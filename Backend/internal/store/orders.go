@@ -29,17 +29,40 @@ func (s *Store) InsertItemTx(ctx context.Context, tx pgx.Tx, orderID string, it 
 func (s *Store) LockGroupBuy(ctx context.Context, tx pgx.Tx, id string) (*models.GroupBuy, error) {
 	g := &models.GroupBuy{}
 	err := tx.QueryRow(ctx, `
-		SELECT g.id, g.title, g.description, g.photo_url, g.product_id, g.unit_label, g.unit_price_uzs,
+		SELECT g.id, COALESCE(g.kind,'product'), g.title, g.description, g.photo_url, g.product_id, g.unit_label, g.unit_price_uzs,
 		       g.min_volume, g.current_volume, COALESCE(p.stock, 0), g.status, g.cash_on_delivery_allowed, g.created_at
 		FROM group_buys g
 		LEFT JOIN products p ON p.id = g.product_id
 		WHERE g.id=$1 FOR UPDATE OF g`, id).Scan(
-		&g.ID, &g.Title, &g.Description, &g.PhotoURL, &g.ProductID, &g.UnitLabel, &g.UnitPriceUzs,
+		&g.ID, &g.Kind, &g.Title, &g.Description, &g.PhotoURL, &g.ProductID, &g.UnitLabel, &g.UnitPriceUzs,
 		&g.MinVolume, &g.CurrentVolume, &g.Stock, &g.Status, &g.CashOnDeliveryAllowed, &g.CreatedAt)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
-	return g, err
+	if err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT gi.product_id, gi.quantity, p.name, p.unit_label, p.unit_price_uzs, p.stock
+		FROM group_buy_items gi
+		JOIN products p ON p.id = gi.product_id
+		WHERE gi.group_buy_id=$1`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		it := models.GroupBuyItem{}
+		if err := rows.Scan(&it.ProductID, &it.Quantity, &it.Name, &it.UnitLabel, &it.UnitPriceUzs, &it.Stock); err != nil {
+			return nil, err
+		}
+		g.Items = append(g.Items, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	g.ApplySellStock()
+	return g, nil
 }
 
 func (s *Store) RecalcVolumeTx(ctx context.Context, tx pgx.Tx, id string) (int, string, int, error) {
@@ -328,6 +351,68 @@ func (s *Store) OrderGroupBuyStatuses(ctx context.Context, orderID string) ([]st
 		st = append(st, s0)
 	}
 	return st, rows.Err()
+}
+
+func (s *Store) OrderGroupBuyIDs(ctx context.Context, orderID string) ([]string, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT group_buy_id FROM order_items WHERE order_id=$1`, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (s *Store) MixedOrderIDs(ctx context.Context) ([]string, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT order_id FROM order_items
+		GROUP BY order_id
+		HAVING COUNT(DISTINCT group_buy_id) > 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (s *Store) CloneOrderLiteTx(ctx context.Context, tx pgx.Tx, srcID string, fee int64) (string, error) {
+	var id string
+	err := tx.QueryRow(ctx, `
+		INSERT INTO orders (user_id, delivery_method, delivery_fee_uzs, status, city_id, mfy_id,
+			delivery_lat, delivery_lng, delivery_address, payment_provider, payment_deadline_at)
+		SELECT user_id, delivery_method, $2, status, city_id, mfy_id,
+			delivery_lat, delivery_lng, delivery_address, payment_provider, payment_deadline_at
+		FROM orders WHERE id=$1
+		RETURNING id`, srcID, fee).Scan(&id)
+	return id, err
+}
+
+func (s *Store) MoveOrderItemTx(ctx context.Context, tx pgx.Tx, itemID, newOrderID string) error {
+	_, err := tx.Exec(ctx, `UPDATE order_items SET order_id=$2 WHERE id=$1`, itemID, newOrderID)
+	return err
+}
+
+func (s *Store) CopyPickupCodeTx(ctx context.Context, tx pgx.Tx, srcID, dstID string) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE orders SET pickup_code = src.pickup_code, updated_at=now()
+		FROM orders src
+		WHERE orders.id=$2 AND src.id=$1 AND src.pickup_code IS NOT NULL AND src.pickup_code <> ''`, srcID, dstID)
+	return err
 }
 
 func (s *Store) PickupCode(ctx context.Context, orderID string) (string, error) {

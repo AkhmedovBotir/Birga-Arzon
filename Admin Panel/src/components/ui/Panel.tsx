@@ -172,7 +172,7 @@ export function SelectField({
                   initial={{ opacity: 0, y: box.up ? 6 : -6, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: box.up ? 6 : -6, scale: 0.98 }}
-                  transition={{ duration: 0.16 }}
+                  transition={{ duration: 0.08 }}
                   className="fixed z-[90] bg-white border border-[#E8DFD0] rounded-xl shadow-[0_16px_48px_rgba(7,38,28,0.18)] overflow-hidden"
                   style={{
                     left: box.left,
@@ -350,15 +350,16 @@ export function Modal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.08 }}
         >
-          <button type="button" className="absolute inset-0 bg-[#07261c]/45 backdrop-blur-[2px]" onClick={onClose} aria-label={tStatic('common_close')} />
+          <button type="button" className="absolute inset-0 bg-[#07261c]/45" onClick={onClose} aria-label={tStatic('common_close')} />
           <motion.div
             role="dialog"
             aria-modal="true"
-            initial={{ opacity: 0, y: 28, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.98 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
             className={cn(
               'relative w-full bg-white rounded-t-2xl sm:rounded-2xl border border-[#E8DFD0] shadow-[0_24px_80px_rgba(7,38,28,0.22)] max-h-[92vh] flex flex-col',
               wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'

@@ -70,8 +70,25 @@ func (s *Store) UpdateCategory(ctx context.Context, id, name string) error {
 }
 
 func (s *Store) DeleteCategory(ctx context.Context, id string) error {
-	_, err := s.Pool.Exec(ctx, `DELETE FROM categories WHERE id=$1`, id)
-	return err
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	productIDs, err := queryIDs(ctx, tx, `
+		SELECT p.id FROM products p
+		JOIN subcategories s ON s.id = p.subcategory_id
+		WHERE s.category_id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if err := purgeProductsTx(ctx, tx, productIDs); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM categories WHERE id=$1`, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) Subcategories(ctx context.Context, categoryID string) ([]models.Subcategory, error) {
@@ -110,8 +127,22 @@ func (s *Store) UpdateSubcategory(ctx context.Context, id, name string) error {
 }
 
 func (s *Store) DeleteSubcategory(ctx context.Context, id string) error {
-	_, err := s.Pool.Exec(ctx, `DELETE FROM subcategories WHERE id=$1`, id)
-	return err
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	productIDs, err := queryIDs(ctx, tx, `SELECT id FROM products WHERE subcategory_id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if err := purgeProductsTx(ctx, tx, productIDs); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM subcategories WHERE id=$1`, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) Products(ctx context.Context, subID string) ([]models.Product, error) {
@@ -179,8 +210,15 @@ func (s *Store) UpdateProduct(ctx context.Context, p models.Product) error {
 }
 
 func (s *Store) DeleteProduct(ctx context.Context, id string) error {
-	_, err := s.Pool.Exec(ctx, `DELETE FROM products WHERE id=$1`, id)
-	return err
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err := purgeProductsTx(ctx, tx, []string{id}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) MoveStock(ctx context.Context, productID, kind string, qty int, note, refType, refID, userID string) error {

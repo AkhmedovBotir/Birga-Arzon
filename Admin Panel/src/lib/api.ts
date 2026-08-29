@@ -19,6 +19,13 @@ export function apiOrigin(): string {
   return API_BASE_URL.replace(/\/$/, '');
 }
 
+export function mediaUrl(url?: string | null): string {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url) || url.startsWith('data:')) return url;
+  const origin = apiOrigin();
+  return `${origin}${url.startsWith('/') ? url : `/${url}`}`;
+}
+
 function buildUrl(path: string): string {
   const origin = apiOrigin();
   const p = path.startsWith('/') ? path : `/${path}`;

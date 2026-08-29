@@ -29,7 +29,10 @@ export default function App() {
   if (!ready) {
     return (
       <div className="min-h-screen grid place-items-center bg-brand-900">
-        <div className="w-10 h-10 rounded-full border-2 border-gold-600 border-t-transparent animate-spin" />
+        <div className="flex flex-col items-center gap-4">
+          <img src="/icon.png" alt="Birga Xarid" className="w-16 h-16 rounded-2xl object-cover shadow-xl animate-pulse" />
+          <div className="w-8 h-8 rounded-full border-2 border-gold-600 border-t-transparent animate-spin" />
+        </div>
       </div>
     );
   }

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { MapPin } from 'lucide-react';
 import { LangSwitch, useI18n } from '@/src/i18n';
 import { Button, Card, Input, Select } from '@/src/components/ui/Base';
+import { LocationPicker } from '@/src/components/map/LocationPicker';
 import { formatAuthError, useAuth } from '@/src/context/AuthContext';
 import { apiRequest } from '@/src/lib/api';
 import { tw } from '@/src/lib/utils';
 import type { City, Mfy, Region } from '@/src/types';
-import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 export function OnboardingScreen() {
   const { t } = useI18n();
@@ -47,20 +47,6 @@ export function OnboardingScreen() {
     }
     void apiRequest<{ items: Mfy[] }>(`/api/cities/${cityId}/mfys`).then((d) => setMfys(d.items || []));
   }, [cityId]);
-
-  const geo = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setError(t('onb_geoNone'));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude.toFixed(6));
-        setLng(pos.coords.longitude.toFixed(6));
-      },
-      () => setError(t('onb_geoDenied'))
-    );
-  };
 
   const save = async () => {
     if (!firstName.trim() || !lastName.trim() || !regionId || !cityId || !mfyId) {
@@ -121,17 +107,18 @@ export function OnboardingScreen() {
             onValueChange={setMfyId}
             options={[{ label: cityId ? t('common_select') : t('common_selectCityFirst'), value: '' }, ...mfys.map((m) => ({ label: m.name, value: m.id }))]}
           />
+          <LocationPicker
+            lat={lat}
+            lng={lng}
+            address={address}
+            onChange={(v) => {
+              setLat(v.lat);
+              setLng(v.lng);
+              if (v.address) setAddress(v.address);
+            }}
+            onError={setError}
+          />
           <Input label={t('onb_addr')} value={address} onChangeText={setAddress} placeholder={t('onb_street')} />
-          <Pressable onPress={geo} style={tw`py-3 flex-row items-center gap-2`}>
-            <MapPin size={18} color="#0B3D2E" />
-            <Text style={tw`text-[#0B3D2E] font-semibold`}>{t('onb_geoBtn')}</Text>
-          </Pressable>
-          {lat && lng ? (
-            <Text style={tw`text-xs text-gray-500`}>
-              {t('onb_point', { lat, lng })}
-              {Platform.OS === 'web' ? `  ·  https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}` : ''}
-            </Text>
-          ) : null}
           <Button onPress={() => void save()} disabled={busy} size="lg">
             {busy ? t('common_saving') : t('common_continue')}
           </Button>

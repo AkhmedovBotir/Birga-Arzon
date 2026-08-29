@@ -56,33 +56,40 @@ export function CategoryGrid({
 
   return (
     <View style={tw`mb-4`}>
-      {title !== '' ? (
-        <Text style={tw`text-sm font-extrabold text-[#14221B] mb-2`}>{title ?? t('cust_catsTitle')}</Text>
+      {title ? (
+        <Text style={tw`text-base font-black text-[#0f1c16] mb-3`}>{title}</Text>
       ) : null}
-      <View style={tw`flex-row flex-wrap -mx-1`}>
+      <View style={tw`flex-row flex-wrap -mx-1.5`}>
         {tiles.map((c) => {
           const on = selectedId != null && selectedId === c.id;
           const { Icon, color } = c.id ? tone(c.id) : { Icon: LayoutGrid, color: { bg: '#E8F6EE', accent: '#0B3D2E' } };
           return (
-            <View key={c.id ?? 'all'} style={{ width: '33.333%', paddingHorizontal: 4, marginBottom: 8 }}>
+            <View key={c.id ?? 'all'} style={{ width: '33.333%', paddingHorizontal: 6, marginBottom: 12 }}>
               <Pressable
                 onPress={() => onSelect(c.id)}
                 style={[
-                  tw`bg-white rounded-2xl px-2 pt-3 pb-2.5 border items-center min-h-[108px]`,
-                  { borderColor: on ? '#0B3D2E' : '#E8DFD0', backgroundColor: on ? '#F3FBF6' : '#fff' },
+                  tw`bg-white rounded-3xl p-3.5 border items-center min-h-[114px] justify-center transition-all shadow-sm active:scale-95`,
+                  {
+                    borderColor: on ? '#0b3d2e' : '#e8dfd0',
+                    backgroundColor: on ? '#f1fbf5' : '#ffffff',
+                    boxShadow: '0 4px 16px -2px rgba(11,61,46,0.05)',
+                  } as any,
                   cardShadowStyle(),
                 ]}
               >
                 <View
                   style={[
-                    tw`w-12 h-12 rounded-2xl items-center justify-center mb-2`,
+                    tw`w-12 h-12 rounded-2xl items-center justify-center mb-2.5 border border-black/5 shadow-sm`,
                     { backgroundColor: color.bg },
                   ]}
                 >
                   <Icon size={24} color={color.accent} />
                 </View>
                 <Text
-                  style={tw`text-[11px] font-bold text-center ${on ? 'text-[#0B3D2E]' : 'text-[#14221B]'}`}
+                  style={[
+                    tw`text-xs text-center font-extrabold tracking-tight leading-4`,
+                    on ? tw`text-[#0b3d2e]` : tw`text-[#0f1c16]`,
+                  ]}
                   numberOfLines={2}
                 >
                   {c.name}

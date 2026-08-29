@@ -10,7 +10,7 @@ export function AuthScreen({ role }: { role: 'admin' | 'courier' }) {
   const { t } = useI18n();
   const { signInWithPassword } = useAuth();
   const [username, setUsername] = useState(role === 'admin' ? 'admin' : '');
-  const [password, setPassword] = useState(role === 'admin' ? 'Admin123!' : 'Courier123!');
+  const [password, setPassword] = useState(role === 'admin' ? 'Admin123!' : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 900);

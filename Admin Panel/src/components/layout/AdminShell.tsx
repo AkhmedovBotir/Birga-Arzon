@@ -90,9 +90,11 @@ export function AdminShell({
       style={{ background: 'linear-gradient(180deg, #0B3D2E 0%, #07261c 100%)' }}
     >
       <div className="flex items-center gap-3 px-4 h-16 shrink-0">
-        <div className="w-10 h-10 rounded-xl bg-[#145C44] flex items-center justify-center text-gold-600 font-black shrink-0">
-          J
-        </div>
+        <img
+          src="/icon.png"
+          alt={t('brandAdmin')}
+          className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-md"
+        />
         <AnimatePresence>
           {(opts.overlay || !collapsed) && (
             <motion.div

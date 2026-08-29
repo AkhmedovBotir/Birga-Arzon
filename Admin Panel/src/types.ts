@@ -94,8 +94,19 @@ export interface UserProfile {
   profileCompleted: boolean;
 }
 
+export interface GroupBuyItem {
+  productId: string;
+  name: string;
+  unitLabel: string;
+  unitPriceUzs: number;
+  quantity: number;
+  stock: number;
+  photoUrl?: string | null;
+}
+
 export interface GroupBuy {
   id: string;
+  kind?: 'product' | 'combo';
   title: string;
   description: string;
   photoUrl?: string;
@@ -105,6 +116,8 @@ export interface GroupBuy {
   unitPriceUzs: number;
   minVolume: number;
   currentVolume: number;
+  stock?: number;
+  items?: GroupBuyItem[];
   status: CollectionStatus;
   cashOnDeliveryAllowed: boolean;
   paymentDeadlineAt?: string;

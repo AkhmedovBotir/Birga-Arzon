@@ -1,6 +1,5 @@
 import { tStatic } from '@/src/i18n';
 import { Image, ImageStyle, StyleProp, View, ViewStyle } from 'react-native';
-import appIconUrl from '@/src/assets/icon.png';
 import { tw } from '@/src/lib/utils';
 
 type AppIconProps = {
@@ -26,7 +25,7 @@ export function AppIcon({ size = 72, style, containerStyle, rounded = 20 }: AppI
       ]}
     >
       <Image
-        source={{ uri: appIconUrl }}
+        source={{ uri: '/icon.png' }}
         style={[{ width: size, height: size }, style]}
         resizeMode="cover"
         accessibilityLabel={tStatic('brand')}

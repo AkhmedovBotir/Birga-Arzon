@@ -6,7 +6,9 @@ export const APP_MAX = 1100;
 export const AUTH_MAX = 480;
 
 export const viewportFill: ViewStyle =
-  Platform.OS === 'web' ? { minHeight: '100dvh' } : { flex: 1 };
+  Platform.OS === 'web'
+    ? { height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' }
+    : { flex: 1 };
 
 const colShadow: ViewStyle =
   Platform.OS === 'web'
@@ -15,7 +17,7 @@ const colShadow: ViewStyle =
 
 export function PageBackdrop({ children }: { children: ReactNode }) {
   return (
-    <View style={[tw`flex-1`, { backgroundColor: '#E8DFD0' }, viewportFill]}>{children}</View>
+    <View style={[tw`flex-1`, { backgroundColor: '#ede6da' }, viewportFill]}>{children}</View>
   );
 }
 
@@ -23,8 +25,8 @@ export function AppColumn({ children }: { children: ReactNode }) {
   return (
     <View
       style={[
-        tw`flex-1 self-center w-full`,
-        { maxWidth: APP_MAX, backgroundColor: '#F6F1E8' },
+        tw`flex-1 self-center w-full flex-col`,
+        { maxWidth: APP_MAX, backgroundColor: '#fbf8f2' },
         viewportFill,
         colShadow,
       ]}
@@ -35,13 +37,23 @@ export function AppColumn({ children }: { children: ReactNode }) {
 }
 
 export function AuthColumn({ children }: { children: ReactNode }) {
-  return <View style={[tw`w-full flex-1 self-center`, { maxWidth: AUTH_MAX }]}>{children}</View>;
+  return (
+    <View
+      style={[
+        tw`w-full flex-1 self-center`,
+        { maxWidth: AUTH_MAX },
+        Platform.OS === 'web' ? { minHeight: '100dvh', overflowY: 'auto' } : {},
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 export const headerSafe: ViewStyle =
   Platform.OS === 'web'
-    ? { paddingTop: 'max(2.75rem, env(safe-area-inset-top))' }
-    : { paddingTop: 48 };
+    ? { paddingTop: 'max(1rem, env(safe-area-inset-top))' }
+    : { paddingTop: 40 };
 
 export const tabSafe: ViewStyle =
   Platform.OS === 'web'

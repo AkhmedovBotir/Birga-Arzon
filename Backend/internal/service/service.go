@@ -141,20 +141,13 @@ func (a *App) Checkout(ctx context.Context, user *models.User, method string) (*
 	}
 	defer tx.Rollback(ctx)
 
-	fee := int64(0)
+	homeFee := int64(0)
 	if method == "home_delivery" {
-		fee = a.Cfg.HomeDeliveryFeeUZS
+		homeFee = a.Cfg.HomeDeliveryFeeUZS
 	}
-	o := &models.Order{
-		UserID: user.ID, DeliveryMethod: method, DeliveryFeeUzs: fee,
-		CityID: user.CityID, MfyID: user.MfyID,
-		DeliveryLat: user.DeliveryLat, DeliveryLng: user.DeliveryLng, DeliveryAddress: user.DeliveryAddress,
-	}
-	if err := a.Store.CreateOrderTx(ctx, tx, o); err != nil {
-		return nil, err
-	}
+	var firstID string
 	touched := map[string]struct{}{}
-	for _, c := range cart {
+	for i, c := range cart {
 		g, err := a.Store.LockGroupBuy(ctx, tx, c.GroupBuyID)
 		if err != nil {
 			return nil, err
@@ -165,6 +158,21 @@ func (a *App) Checkout(ctx context.Context, user *models.User, method string) (*
 		remain := models.MaxSellQty(g.Stock, g.CurrentVolume)
 		if c.Quantity > remain {
 			return nil, fmt.Errorf("%s: ko‘pi bilan %d %s olish mumkin", c.Title, remain, g.UnitLabel)
+		}
+		fee := int64(0)
+		if i == 0 {
+			fee = homeFee
+		}
+		o := &models.Order{
+			UserID: user.ID, DeliveryMethod: method, DeliveryFeeUzs: fee,
+			CityID: user.CityID, MfyID: user.MfyID,
+			DeliveryLat: user.DeliveryLat, DeliveryLng: user.DeliveryLng, DeliveryAddress: user.DeliveryAddress,
+		}
+		if err := a.Store.CreateOrderTx(ctx, tx, o); err != nil {
+			return nil, err
+		}
+		if firstID == "" {
+			firstID = o.ID
 		}
 		if err := a.Store.InsertItemTx(ctx, tx, o.ID, models.OrderItem{
 			GroupBuyID: c.GroupBuyID, ProductID: g.ProductID, Title: g.Title, Quantity: c.Quantity,
@@ -185,7 +193,80 @@ func (a *App) Checkout(ctx context.Context, user *models.User, method string) (*
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	return a.Store.Order(ctx, o.ID)
+	return a.Store.Order(ctx, firstID)
+}
+
+func (a *App) SplitMixedOrders(ctx context.Context) error {
+	ids, err := a.Store.MixedOrderIDs(ctx)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if err := a.splitOneOrder(ctx, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *App) splitOneOrder(ctx context.Context, orderID string) error {
+	o, err := a.Store.Order(ctx, orderID)
+	if err != nil || o == nil {
+		return err
+	}
+	groups := map[string][]models.OrderItem{}
+	var gbs []string
+	for _, it := range o.Items {
+		if _, ok := groups[it.GroupBuyID]; !ok {
+			gbs = append(gbs, it.GroupBuyID)
+		}
+		groups[it.GroupBuyID] = append(groups[it.GroupBuyID], it)
+	}
+	if len(gbs) < 2 {
+		return nil
+	}
+	tx, err := a.Store.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var needCodes []string
+	for _, gbID := range gbs[1:] {
+		newID, err := a.Store.CloneOrderLiteTx(ctx, tx, o.ID, 0)
+		if err != nil {
+			return err
+		}
+		for _, it := range groups[gbID] {
+			if err := a.Store.MoveOrderItemTx(ctx, tx, it.ID, newID); err != nil {
+				return err
+			}
+		}
+		if o.Status == "issued" || o.Status == "cancelled" {
+			if err := a.Store.CopyPickupCodeTx(ctx, tx, o.ID, newID); err != nil {
+				return err
+			}
+		} else if o.PickupCode != "" || o.Status == "with_courier" {
+			needCodes = append(needCodes, newID)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	for _, id := range needCodes {
+		code, err := a.uniqueCode(ctx)
+		if err != nil {
+			return err
+		}
+		if err := a.Store.SetPickupCode(ctx, id, code); err != nil {
+			return err
+		}
+		fresh, _ := a.Store.Order(ctx, id)
+		if fresh != nil {
+			_ = a.Store.Notify(ctx, fresh.UserID, "Kuryer qabul qildi",
+				fmt.Sprintf("Olish kodingiz: %s. Shu kod orqali mahsulotni oling.", code))
+		}
+	}
+	return nil
 }
 
 func (a *App) CancelOrder(ctx context.Context, userID, orderID string) error {
@@ -223,6 +304,9 @@ func (a *App) CancelOrder(ctx context.Context, userID, orderID string) error {
 }
 
 func (a *App) CloseCollection(ctx context.Context, id string) error {
+	if err := a.SplitMixedOrders(ctx); err != nil {
+		return err
+	}
 	g, err := a.Store.GroupBuy(ctx, id)
 	if err != nil || g == nil {
 		return fmt.Errorf("yig‘im topilmadi")
@@ -275,64 +359,64 @@ func (a *App) AcceptCollection(ctx context.Context, gbID string, regionID *strin
 	if g.Status != "closed" && g.Status != "in_fulfillment" {
 		return fmt.Errorf("avval admin yig‘imni yopishi kerak")
 	}
-	if g.Status == "closed" {
-		if err := a.Store.SetGroupBuyStatus(ctx, gbID, "in_fulfillment"); err != nil {
-			return err
+	return fmt.Errorf("har bir buyurtmani alohida qabul qiling")
+}
+
+func (a *App) AcceptOrder(ctx context.Context, orderID string, regionID *string) error {
+	if err := a.SplitMixedOrders(ctx); err != nil {
+		return err
+	}
+	o, err := a.Store.Order(ctx, orderID)
+	if err != nil || o == nil {
+		return fmt.Errorf("buyurtma topilmadi")
+	}
+	if regionID != nil && strings.TrimSpace(*regionID) != "" {
+		if o.RegionID == nil || *o.RegionID != strings.TrimSpace(*regionID) {
+			return fmt.Errorf("ruxsat yo‘q")
 		}
 	}
-	orders, err := a.Store.OrdersForGroupBuy(ctx, gbID)
+	if o.Status == "with_courier" && o.PickupCode != "" {
+		return nil
+	}
+	if o.Status != "awaiting_courier" && o.Status != "collecting" {
+		return fmt.Errorf("bu buyurtmani qabul qilib bo‘lmaydi")
+	}
+	gbIDs, err := a.Store.OrderGroupBuyIDs(ctx, o.ID)
 	if err != nil {
 		return err
 	}
-	scope := ""
-	if regionID != nil {
-		scope = strings.TrimSpace(*regionID)
+	if len(gbIDs) == 0 {
+		return fmt.Errorf("bu buyurtmani qabul qilib bo‘lmaydi")
 	}
-	matched := 0
-	for _, o := range orders {
-		if scope != "" && (o.RegionID == nil || *o.RegionID != scope) {
-			continue
+	for _, gbID := range gbIDs {
+		g, err := a.Store.GroupBuy(ctx, gbID)
+		if err != nil || g == nil {
+			return fmt.Errorf("yig‘im topilmadi")
 		}
-		matched++
-		if o.Status != "awaiting_courier" && o.Status != "collecting" && o.Status != "with_courier" {
-			continue
+		if g.Status != "closed" && g.Status != "in_fulfillment" {
+			return fmt.Errorf("avval admin yig‘imni yopishi kerak")
 		}
-		sts, err := a.Store.OrderGroupBuyStatuses(ctx, o.ID)
+		if g.Status == "closed" {
+			if err := a.Store.SetGroupBuyStatus(ctx, gbID, "in_fulfillment"); err != nil {
+				return err
+			}
+		}
+	}
+	code := o.PickupCode
+	if code == "" {
+		code, err = a.uniqueCode(ctx)
 		if err != nil {
 			return err
 		}
-		allAccepted := true
-		for _, st := range sts {
-			if st != "in_fulfillment" && st != "completed" {
-				allAccepted = false
-				break
-			}
-		}
-		if !allAccepted {
-			continue
-		}
-		if o.Status == "with_courier" && o.PickupCode != "" {
-			continue
-		}
-		code := o.PickupCode
-		if code == "" {
-			code, err = a.uniqueCode(ctx)
-			if err != nil {
-				return err
-			}
-			if err := a.Store.SetPickupCode(ctx, o.ID, code); err != nil {
-				return err
-			}
-		}
-		if err := a.Store.SetOrderStatus(ctx, o.ID, "with_courier"); err != nil {
+		if err := a.Store.SetPickupCode(ctx, o.ID, code); err != nil {
 			return err
 		}
-		_ = a.Store.Notify(ctx, o.UserID, "Kuryer qabul qildi",
-			fmt.Sprintf("Olish kodingiz: %s. Shu kod orqali mahsulotni oling.", code))
 	}
-	if scope != "" && matched == 0 {
-		return fmt.Errorf("bu viloyatda qabul qiladigan buyurtma yo‘q")
+	if err := a.Store.SetOrderStatus(ctx, o.ID, "with_courier"); err != nil {
+		return err
 	}
+	_ = a.Store.Notify(ctx, o.UserID, "Kuryer qabul qildi",
+		fmt.Sprintf("Olish kodingiz: %s. Shu kod orqali mahsulotni oling.", code))
 	return nil
 }
 

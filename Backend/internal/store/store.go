@@ -432,7 +432,7 @@ func (s *Store) DeleteMfy(ctx context.Context, id string) error {
 	return err
 }
 
-const gbSelect = `g.id, g.title, g.description, g.photo_url, COALESCE(g.photo_urls, '{}'), g.product_id, g.unit_label, g.unit_price_uzs, g.min_volume, g.current_volume, COALESCE(p.stock, 0), g.status, g.cash_on_delivery_allowed, g.created_at, s.category_id, c.name`
+const gbSelect = `g.id, g.kind, g.title, g.description, g.photo_url, COALESCE(g.photo_urls, '{}'), g.product_id, g.unit_label, g.unit_price_uzs, g.min_volume, g.current_volume, COALESCE(p.stock, 0), g.status, g.cash_on_delivery_allowed, g.created_at, s.category_id, c.name`
 const gbFrom = `group_buys g
 		LEFT JOIN products p ON p.id = g.product_id
 		LEFT JOIN subcategories s ON s.id = p.subcategory_id
@@ -440,7 +440,7 @@ const gbFrom = `group_buys g
 
 func scanGB(row pgx.Row) (*models.GroupBuy, error) {
 	g := &models.GroupBuy{}
-	err := row.Scan(&g.ID, &g.Title, &g.Description, &g.PhotoURL, &g.PhotoURLs, &g.ProductID, &g.UnitLabel, &g.UnitPriceUzs,
+	err := row.Scan(&g.ID, &g.Kind, &g.Title, &g.Description, &g.PhotoURL, &g.PhotoURLs, &g.ProductID, &g.UnitLabel, &g.UnitPriceUzs,
 		&g.MinVolume, &g.CurrentVolume, &g.Stock, &g.Status, &g.CashOnDeliveryAllowed, &g.CreatedAt, &g.CategoryID, &g.CategoryName)
 	if err != nil {
 		return nil, err
@@ -448,7 +448,77 @@ func scanGB(row pgx.Row) (*models.GroupBuy, error) {
 	if g.PhotoURLs == nil {
 		g.PhotoURLs = []string{}
 	}
+	if g.Kind == "" {
+		g.Kind = "product"
+	}
+	if g.Items == nil {
+		g.Items = []models.GroupBuyItem{}
+	}
 	return g, nil
+}
+
+func (s *Store) attachItems(ctx context.Context, list []*models.GroupBuy) error {
+	if len(list) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(list))
+	idx := map[string]*models.GroupBuy{}
+	for _, g := range list {
+		ids = append(ids, g.ID)
+		idx[g.ID] = g
+		g.Items = []models.GroupBuyItem{}
+	}
+	rows, err := s.Pool.Query(ctx, `
+		SELECT gi.group_buy_id, gi.product_id, gi.quantity, p.name, p.unit_label, p.unit_price_uzs, p.stock, p.photo_url
+		FROM group_buy_items gi
+		JOIN products p ON p.id = gi.product_id
+		WHERE gi.group_buy_id = ANY($1::uuid[])
+		ORDER BY p.name`, ids)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var gid string
+		it := models.GroupBuyItem{}
+		if err := rows.Scan(&gid, &it.ProductID, &it.Quantity, &it.Name, &it.UnitLabel, &it.UnitPriceUzs, &it.Stock, &it.PhotoURL); err != nil {
+			return err
+		}
+		if g := idx[gid]; g != nil {
+			g.Items = append(g.Items, it)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, g := range list {
+		g.ApplySellStock()
+	}
+	return nil
+}
+
+func (s *Store) ReplaceGroupBuyItems(ctx context.Context, gbID string, items []models.GroupBuyItem) error {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `DELETE FROM group_buy_items WHERE group_buy_id=$1`, gbID); err != nil {
+		return err
+	}
+	for _, it := range items {
+		if strings.TrimSpace(it.ProductID) == "" || it.Quantity <= 0 {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO group_buy_items (group_buy_id, product_id, quantity)
+			VALUES ($1,$2,$3)
+			ON CONFLICT (group_buy_id, product_id) DO UPDATE SET quantity=EXCLUDED.quantity`,
+			gbID, it.ProductID, it.Quantity); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) GroupBuy(ctx context.Context, id string) (*models.GroupBuy, error) {
@@ -459,7 +529,13 @@ func (s *Store) GroupBuy(ctx context.Context, id string) (*models.GroupBuy, erro
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
-	return g, err
+	if err != nil {
+		return nil, err
+	}
+	if err := s.attachItems(ctx, []*models.GroupBuy{g}); err != nil {
+		return nil, err
+	}
+	return g, nil
 }
 
 func (s *Store) ListGroupBuys(ctx context.Context, status string) ([]models.GroupBuy, error) {
@@ -475,40 +551,65 @@ func (s *Store) ListGroupBuys(ctx context.Context, status string) ([]models.Grou
 		return nil, err
 	}
 	defer rows.Close()
-	var out []models.GroupBuy
+	var ptrs []*models.GroupBuy
 	for rows.Next() {
 		g, err := scanGB(rows)
 		if err != nil {
 			return nil, err
 		}
+		ptrs = append(ptrs, g)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := s.attachItems(ctx, ptrs); err != nil {
+		return nil, err
+	}
+	out := make([]models.GroupBuy, 0, len(ptrs))
+	for _, g := range ptrs {
 		out = append(out, *g)
 	}
-	if out == nil {
-		out = []models.GroupBuy{}
-	}
-	return out, rows.Err()
+	return out, nil
 }
 
 func (s *Store) CreateGroupBuy(ctx context.Context, g models.GroupBuy, createdBy string) (*models.GroupBuy, error) {
+	if g.Kind == "" {
+		g.Kind = "product"
+	}
 	err := s.Pool.QueryRow(ctx, `
-		INSERT INTO group_buys (title, description, photo_url, photo_urls, product_id, unit_label, unit_price_uzs, min_volume, status, cash_on_delivery_allowed, created_by)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'open',$9,$10)
+		INSERT INTO group_buys (kind, title, description, photo_url, photo_urls, product_id, unit_label, unit_price_uzs, min_volume, status, cash_on_delivery_allowed, created_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'open',$10,$11)
 		RETURNING id, created_at`,
-		g.Title, g.Description, g.PhotoURL, g.PhotoURLs, g.ProductID, g.UnitLabel, g.UnitPriceUzs, g.MinVolume, g.CashOnDeliveryAllowed, createdBy,
+		g.Kind, g.Title, g.Description, g.PhotoURL, g.PhotoURLs, g.ProductID, g.UnitLabel, g.UnitPriceUzs, g.MinVolume, g.CashOnDeliveryAllowed, createdBy,
 	).Scan(&g.ID, &g.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
 	g.Status = "open"
 	g.CurrentVolume = 0
-	return &g, err
+	if err := s.ReplaceGroupBuyItems(ctx, g.ID, g.Items); err != nil {
+		return nil, err
+	}
+	return s.GroupBuy(ctx, g.ID)
 }
 
 func (s *Store) UpdateGroupBuy(ctx context.Context, g models.GroupBuy) error {
+	if g.Kind == "" {
+		g.Kind = "product"
+	}
 	_, err := s.Pool.Exec(ctx, `
 		UPDATE group_buys
-		SET title=$2, description=$3, photo_url=$4, photo_urls=$5, product_id=$6,
-		    unit_label=$7, unit_price_uzs=$8, min_volume=$9, updated_at=now()
+		SET kind=$2, title=$3, description=$4, photo_url=$5, photo_urls=$6, product_id=$7,
+		    unit_label=$8, unit_price_uzs=$9, min_volume=$10, updated_at=now()
 		WHERE id=$1 AND status='open'`,
-		g.ID, g.Title, g.Description, g.PhotoURL, g.PhotoURLs, g.ProductID, g.UnitLabel, g.UnitPriceUzs, g.MinVolume)
-	return err
+		g.ID, g.Kind, g.Title, g.Description, g.PhotoURL, g.PhotoURLs, g.ProductID, g.UnitLabel, g.UnitPriceUzs, g.MinVolume)
+	if err != nil {
+		return err
+	}
+	if g.Items != nil {
+		return s.ReplaceGroupBuyItems(ctx, g.ID, g.Items)
+	}
+	return nil
 }
 
 func (s *Store) GroupBuyHasOrders(ctx context.Context, id string) (bool, error) {
@@ -518,11 +619,15 @@ func (s *Store) GroupBuyHasOrders(ctx context.Context, id string) (bool, error) 
 }
 
 func (s *Store) DeleteGroupBuy(ctx context.Context, id string) error {
-	if _, err := s.Pool.Exec(ctx, `DELETE FROM cart_items WHERE group_buy_id=$1`, id); err != nil {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
 		return err
 	}
-	_, err := s.Pool.Exec(ctx, `DELETE FROM group_buys WHERE id=$1`, id)
-	return err
+	defer tx.Rollback(ctx)
+	if err := purgeGroupBuysTx(ctx, tx, []string{id}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) SetGroupBuyStatus(ctx context.Context, id, status string) error {
@@ -569,10 +674,14 @@ func (s *Store) Cart(ctx context.Context, userID string) ([]models.CartItem, err
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	for i, it := range out {
-		maxQty := models.MaxSellQty(it.Stock, it.CurrentVolume)
-		if it.Quantity > maxQty {
-			if err := s.UpsertCart(ctx, userID, it.GroupBuyID, maxQty, false); err != nil {
+	for i := range out {
+		g, err := s.GroupBuy(ctx, out[i].GroupBuyID)
+		if err == nil && g != nil {
+			out[i].Stock = g.Stock
+		}
+		maxQty := models.MaxSellQty(out[i].Stock, out[i].CurrentVolume)
+		if out[i].Quantity > maxQty {
+			if err := s.UpsertCart(ctx, userID, out[i].GroupBuyID, maxQty, false); err != nil {
 				return nil, err
 			}
 			out[i].Quantity = maxQty

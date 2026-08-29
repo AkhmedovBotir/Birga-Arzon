@@ -1,17 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Manrope:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-brand-950: #07261c;
+  --font-sans: 'Plus Jakarta Sans', 'Manrope', system-ui, sans-serif;
+  --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+
+  --color-brand-950: #051b14;
   --color-brand-900: #0b3d2e;
-  --color-brand-800: #145c44;
+  --color-brand-800: #12543e;
   --color-brand-700: #1b7a4a;
-  --color-brand-600: #1f8a4c;
-  --color-brand-100: #e3f4ea;
-  --color-brand-50: #f3faf6;
-  --color-cream: #f6f1e8;
-  --color-gold-600: #c4a35a;
-  --color-gold-100: #f4ead4;
-  --color-ink: #14221b;
+  --color-brand-600: #229958;
+  --color-brand-100: #daf3e5;
+  --color-brand-50: #f1fbf5;
+  
+  --color-cream: #fbf8f2;
+  --color-gold-600: #b8913b;
+  --color-gold-500: #d4af37;
+  --color-gold-100: #faf3e0;
+  
+  --color-ink: #0f1c16;
   --color-danger-500: #dc2626;
   --color-danger-50: #fef2f2;
 }
@@ -24,13 +31,18 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 html, body, #root {
   min-height: 100dvh;
   max-width: 100%;
-  background: #e8dfd0;
+  background: #ede6da;
   overflow-x: hidden;
+  font-family: 'Plus Jakarta Sans', 'Manrope', system-ui, sans-serif;
+  color: #0f1c16;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 img, video, canvas {
@@ -38,15 +50,17 @@ img, video, canvas {
   height: auto;
 }
 
-body {
-  font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
-  color: #14221b;
-}
-
 input::placeholder,
 textarea::placeholder {
-  color: #9aa59d !important;
+  color: #8c9c93 !important;
   opacity: 1;
+}
+
+.glass-dark {
+  background: rgba(11, 61, 46, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 175, 55, 0.25);
 }
 
 @layer utilities {

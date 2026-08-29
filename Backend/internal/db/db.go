@@ -37,8 +37,10 @@ func checksum(b []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Migrate applies SQL files that are new or whose content changed.
-// Already-applied files with the same checksum are skipped.
+// Migrate applies each SQL file at most once.
+// Already-applied files are never re-run — even if their contents changed —
+// so existing rows stay intact. Schema changes must be a new numbered file
+// (ADD COLUMN / CREATE TABLE IF NOT EXISTS), not an edit of an old one.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -61,7 +63,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 	sort.Strings(names)
 
-	applied, skipped, updated := 0, 0, 0
+	applied, skipped := 0, 0
 	for _, name := range names {
 		b, err := migrations.Files.ReadFile(name)
 		if err != nil {
@@ -71,11 +73,14 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 
 		var prev string
 		err = pool.QueryRow(ctx, `SELECT checksum FROM schema_migrations WHERE name=$1`, name).Scan(&prev)
-		if err == nil && prev == sum {
+		if err == nil {
+			if prev != sum {
+				log.Printf("migration o‘tkazib yuborildi (allaqachon qo‘llangan): %s — o‘zgarish uchun yangi SQL fayl qo‘shing, eski fayl qayta ishlatilmaydi", name)
+			}
 			skipped++
 			continue
 		}
-		if err != nil && err != pgx.ErrNoRows {
+		if err != pgx.ErrNoRows {
 			return fmt.Errorf("migration %s lookup: %w", name, err)
 		}
 
@@ -89,8 +94,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO schema_migrations (name, checksum, applied_at)
-			VALUES ($1,$2,now())
-			ON CONFLICT (name) DO UPDATE SET checksum=EXCLUDED.checksum, applied_at=now()`,
+			VALUES ($1,$2,now())`,
 			name, sum); err != nil {
 			_ = tx.Rollback(ctx)
 			return fmt.Errorf("migration %s record: %w", name, err)
@@ -98,14 +102,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		if err := tx.Commit(ctx); err != nil {
 			return err
 		}
-		if prev != "" {
-			updated++
-			log.Printf("migration yangilandi: %s", name)
-		} else {
-			applied++
-			log.Printf("migration qo‘llandi: %s", name)
-		}
+		applied++
+		log.Printf("migration qo‘llandi: %s", name)
 	}
-	log.Printf("migratsiya: %d yangi, %d yangilangan, %d o‘tkazib yuborilgan", applied, updated, skipped)
+	log.Printf("migratsiya: %d yangi, %d o‘tkazib yuborilgan (ma’lumot o‘chirilmaydi)", applied, skipped)
 	return nil
 }

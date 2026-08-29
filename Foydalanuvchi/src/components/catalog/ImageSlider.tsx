@@ -22,10 +22,24 @@ function absUrl(u: string) {
   return `${origin}${u.startsWith('/') ? u : `/${u}`}`;
 }
 
-export function photosOf(g: { photoUrls?: string[]; photoUrl?: string | null }) {
+export function photosOf(g: {
+  photoUrls?: string[];
+  photoUrl?: string | null;
+  items?: { photoUrl?: string | null }[];
+}) {
   const list = g.photoUrls?.filter(Boolean) ?? [];
   const raw = list.length ? list : g.photoUrl ? [g.photoUrl] : [];
+  if (!raw.length && g.items?.length) {
+    const fromItems = g.items.map((it) => it.photoUrl).filter((u): u is string => Boolean(u));
+    const uniq = [...new Set(fromItems)];
+    return uniq.map(absUrl);
+  }
   return raw.map(absUrl);
+}
+
+export function absMedia(u?: string | null) {
+  if (!u) return '';
+  return absUrl(u);
 }
 
 function Pager({
@@ -237,7 +251,7 @@ export function ImageSlider({
         <Nav count={urls.length} index={i} height={height} onGo={go} />
       </View>
 
-      <Modal visible={full} transparent animationType="fade" onRequestClose={() => setFull(false)}>
+      <Modal visible={full} transparent animationType="none" onRequestClose={() => setFull(false)}>
         <View
           dataSet={{ lightbox: 'full' }}
           style={{ flex: 1, backgroundColor: 'rgba(7,38,28,0.96)', width: fullW, height: fullH }}

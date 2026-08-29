@@ -39,23 +39,59 @@ type Mfy struct {
 	Lng           *float64 `json:"lng"`
 }
 
+type GroupBuyItem struct {
+	ProductID    string  `json:"productId"`
+	Name         string  `json:"name"`
+	UnitLabel    string  `json:"unitLabel"`
+	UnitPriceUzs int64   `json:"unitPriceUzs"`
+	Quantity     int     `json:"quantity"`
+	Stock        int     `json:"stock"`
+	PhotoURL     *string `json:"photoUrl,omitempty"`
+}
+
 type GroupBuy struct {
-	ID                     string    `json:"id"`
-	Title                  string    `json:"title"`
-	Description            string    `json:"description"`
-	PhotoURL               *string   `json:"photoUrl"`
-	PhotoURLs              []string  `json:"photoUrls,omitempty"`
-	ProductID              *string   `json:"productId,omitempty"`
-	UnitLabel              string    `json:"unitLabel"`
-	UnitPriceUzs           int64     `json:"unitPriceUzs"`
-	MinVolume              int       `json:"minVolume"`
-	CurrentVolume          int       `json:"currentVolume"`
-	Stock                  int       `json:"stock"`
-	Status                 string    `json:"status"`
-	CashOnDeliveryAllowed  bool      `json:"cashOnDeliveryAllowed"`
-	CategoryID             *string   `json:"categoryId,omitempty"`
-	CategoryName           *string   `json:"categoryName,omitempty"`
-	CreatedAt              time.Time `json:"createdAt"`
+	ID                    string         `json:"id"`
+	Kind                  string         `json:"kind"`
+	Title                 string         `json:"title"`
+	Description           string         `json:"description"`
+	PhotoURL              *string        `json:"photoUrl"`
+	PhotoURLs             []string       `json:"photoUrls,omitempty"`
+	ProductID             *string        `json:"productId,omitempty"`
+	UnitLabel             string         `json:"unitLabel"`
+	UnitPriceUzs          int64          `json:"unitPriceUzs"`
+	MinVolume             int            `json:"minVolume"`
+	CurrentVolume         int            `json:"currentVolume"`
+	Stock                 int            `json:"stock"`
+	Status                string         `json:"status"`
+	CashOnDeliveryAllowed bool           `json:"cashOnDeliveryAllowed"`
+	CategoryID            *string        `json:"categoryId,omitempty"`
+	CategoryName          *string        `json:"categoryName,omitempty"`
+	Items                 []GroupBuyItem `json:"items,omitempty"`
+	CreatedAt             time.Time      `json:"createdAt"`
+}
+
+// ComboStock — nechta to‘plam ombordan yig‘ilishi mumkin.
+func ComboStock(items []GroupBuyItem) int {
+	min := -1
+	for _, it := range items {
+		if it.Quantity <= 0 {
+			return 0
+		}
+		n := it.Stock / it.Quantity
+		if min < 0 || n < min {
+			min = n
+		}
+	}
+	if min < 0 {
+		return 0
+	}
+	return min
+}
+
+func (g *GroupBuy) ApplySellStock() {
+	if g.Kind == "combo" && len(g.Items) > 0 {
+		g.Stock = ComboStock(g.Items)
+	}
 }
 
 type CartItem struct {
@@ -71,7 +107,7 @@ type CartItem struct {
 	Status        string `json:"status"`
 }
 
-// MaxSellQty — savat/buyurtma mahsulot ombor sonidan (stock) oshmasin.
+// MaxSellQty — ombordagi sondan (stock) buyurtma qilinganini ayiradi.
 func MaxSellQty(stock, currentVolume int) int {
 	if stock <= 0 {
 		return 0

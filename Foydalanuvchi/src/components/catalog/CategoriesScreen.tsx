@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { ChevronLeft } from 'lucide-react-native';
+import { ArrowLeft, ChevronLeft, LayoutGrid, Package } from 'lucide-react-native';
 import { errText, useI18n } from '@/src/i18n';
 import { Card } from '@/src/components/ui/Base';
 import { CategoryGrid } from '@/src/components/catalog/CategoryGrid';
@@ -69,11 +69,23 @@ export function CategoriesScreen() {
     }
   };
 
-  const selectedCat = cats.find((c) => c.id === catId) ?? null;
+  // Faqat kamida bitta ochiq yig'uvga ega bo'lgan kategoriyalarni ko'rsatamiz
+  const activeCats = useMemo(() => {
+    return cats.filter((cat) =>
+      items.some((g) => g.categoryId === cat.id || (g.categoryName && g.categoryName.toLowerCase() === cat.name.toLowerCase())),
+    );
+  }, [cats, items]);
+
+  const selectedCat = activeCats.find((c) => c.id === catId) ?? null;
   const selected = items.find((g) => g.id === openId) ?? null;
   const visible = useMemo(
-    () => (catId ? items.filter((g) => g.categoryId === catId) : []),
-    [items, catId],
+    () =>
+      catId
+        ? items.filter(
+            (g) => g.categoryId === catId || (selectedCat && g.categoryName?.toLowerCase() === selectedCat.name.toLowerCase()),
+          )
+        : [],
+    [items, catId, selectedCat],
   );
 
   if (selected) {
@@ -89,18 +101,33 @@ export function CategoriesScreen() {
 
   if (selectedCat) {
     return (
-      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-6`}>
-        <Pressable onPress={() => setCatId(null)} style={tw`flex-row items-center gap-1 mb-3 self-start py-1`}>
-          <ChevronLeft size={20} color="#0B3D2E" />
-          <Text style={tw`font-bold text-[#0B3D2E]`}>{t('common_back')}</Text>
+      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-8`} showsVerticalScrollIndicator={false}>
+        <Pressable
+          onPress={() => setCatId(null)}
+          style={tw`flex-row items-center gap-2 mb-3.5 self-start px-3 py-1.5 rounded-2xl bg-white border border-[#E8DFD0] shadow-sm`}
+        >
+          <ArrowLeft size={15} color="#0B3D2E" />
+          <Text style={tw`font-extrabold text-xs text-[#0B3D2E]`}>{t('common_back')}</Text>
         </Pressable>
-        <Text style={tw`text-2xl font-extrabold text-[#14221B] mb-1`}>{selectedCat.name}</Text>
-        <Text style={tw`text-[#5C6B63] mb-4`}>{t('cust_itemsCount', { n: visible.length })}</Text>
-        {error ? <Text style={tw`text-red-600 mb-3`}>{error}</Text> : null}
+
+        <View style={tw`mb-4`}>
+          <Text style={tw`text-2xl sm:text-3xl font-black text-[#0f1c16] tracking-tight`}>{selectedCat.name}</Text>
+          <Text style={tw`text-[#54665d] text-xs sm:text-sm mt-0.5`}>
+            {t('cust_itemsCount', { n: visible.length })}
+          </Text>
+        </View>
+
+        {error ? (
+          <View style={tw`p-3 bg-red-50 border border-red-200 rounded-2xl mb-4`}>
+            <Text style={tw`text-red-700 text-xs font-bold`}>{error}</Text>
+          </View>
+        ) : null}
+
         {visible.length === 0 ? (
-          <Card>
-            <Text style={tw`font-bold text-[#14221B]`}>{t('cust_noOpen')}</Text>
-            <Text style={tw`text-[#5C6B63] mt-1`}>{t('cust_noOpenHint')}</Text>
+          <Card className="items-center text-center py-10">
+            <Package size={36} color="#8c9c93" />
+            <Text style={tw`font-extrabold text-base text-[#0f1c16] mt-3`}>{t('cust_noOpen')}</Text>
+            <Text style={tw`text-[#54665d] text-xs mt-1 text-center max-w-[280px]`}>{t('cust_noOpenHint')}</Text>
           </Card>
         ) : (
           <View
@@ -108,7 +135,7 @@ export function CategoriesScreen() {
               const w = e.nativeEvent.layout.width;
               setCols(w >= 860 ? 3 : 2);
             }}
-            style={tw`flex-row flex-wrap -mx-1`}
+            style={tw`flex-row flex-wrap -mx-1.5`}
           >
             {visible.map((g) => (
               <View
@@ -116,7 +143,7 @@ export function CategoriesScreen() {
                 style={{
                   width: `${100 / cols}%`,
                   maxWidth: `${100 / cols}%`,
-                  paddingHorizontal: 4,
+                  paddingHorizontal: 6,
                 }}
               >
                 <ProductCard
@@ -135,17 +162,26 @@ export function CategoriesScreen() {
   }
 
   return (
-    <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-6`}>
-      <Text style={tw`text-2xl font-extrabold text-[#14221B] mb-1`}>{t('cust_catsTitle')}</Text>
-      <Text style={tw`text-[#5C6B63] mb-4`}>{t('cust_catsHint')}</Text>
-      {error ? <Text style={tw`text-red-600 mb-3`}>{error}</Text> : null}
-      {cats.length === 0 ? (
-        <Card>
-          <Text style={tw`font-bold text-[#14221B]`}>{t('cust_noCats')}</Text>
-          <Text style={tw`text-[#5C6B63] mt-1`}>{t('cust_noCatsHint')}</Text>
+    <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-8`} showsVerticalScrollIndicator={false}>
+      <View style={tw`mb-4`}>
+        <Text style={tw`text-2xl sm:text-3xl font-black text-[#0f1c16] tracking-tight`}>{t('cust_catsTitle')}</Text>
+        <Text style={tw`text-[#54665d] text-xs sm:text-sm mt-0.5`}>{t('cust_catsHint')}</Text>
+      </View>
+
+      {error ? (
+        <View style={tw`p-3 bg-red-50 border border-red-200 rounded-2xl mb-4`}>
+          <Text style={tw`text-red-700 text-xs font-bold`}>{error}</Text>
+        </View>
+      ) : null}
+
+      {activeCats.length === 0 ? (
+        <Card className="items-center text-center py-12">
+          <LayoutGrid size={36} color="#8c9c93" />
+          <Text style={tw`font-extrabold text-base text-[#0f1c16] mt-3`}>{t('cust_noCats')}</Text>
+          <Text style={tw`text-[#54665d] text-xs mt-1 text-center max-w-[280px]`}>{t('cust_noCatsHint')}</Text>
         </Card>
       ) : (
-        <CategoryGrid categories={cats} showAll={false} title="" onSelect={setCatId} />
+        <CategoryGrid categories={activeCats} showAll={false} title="" onSelect={setCatId} />
       )}
     </ScrollView>
   );

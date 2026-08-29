@@ -29,6 +29,7 @@ func main() {
 		log.Fatalf("db: %v", err)
 	}
 	defer pool.Close()
+	// Additive schema only — never drops/truncates existing data.
 	if err := db.Migrate(ctx, pool); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
@@ -150,6 +151,7 @@ func main() {
 				r.Use(h.Role("courier", "admin"))
 				r.Get("/deliveries", h.CourierDeliveries)
 				r.Post("/group-buys/{id}/accept", h.CourierAccept)
+				r.Post("/orders/{id}/accept", h.CourierAccept)
 				r.Post("/orders/issue", h.Issue)
 			})
 		})

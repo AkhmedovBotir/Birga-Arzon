@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -380,6 +381,10 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Orders(w http.ResponseWriter, r *http.Request) {
+	if err := h.App.SplitMixedOrders(r.Context()); err != nil {
+		httpx.Error(w, 500, err.Error())
+		return
+	}
 	items, err := h.App.Store.ListOrdersByUser(r.Context(), UserFrom(r.Context()).ID)
 	if err != nil {
 		httpx.Error(w, 500, err.Error())
@@ -598,6 +603,10 @@ func (h *Handler) AdminUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AdminOrders(w http.ResponseWriter, r *http.Request) {
+	if err := h.App.SplitMixedOrders(r.Context()); err != nil {
+		httpx.Error(w, 500, err.Error())
+		return
+	}
 	items, err := h.App.Store.ListOrders(r.Context(), r.URL.Query().Get("status"))
 	if err != nil {
 		httpx.Error(w, 500, err.Error())
@@ -646,6 +655,10 @@ func (h *Handler) Issue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CourierDeliveries(w http.ResponseWriter, r *http.Request) {
+	if err := h.App.SplitMixedOrders(r.Context()); err != nil {
+		httpx.Error(w, 500, err.Error())
+		return
+	}
 	u := UserFrom(r.Context())
 	region := courierRegion(u)
 	needArea := u != nil && u.Role == "courier" && region == nil
@@ -729,11 +742,16 @@ func (h *Handler) CourierAccept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := chi.URLParam(r, "id")
-	if err := h.App.AcceptCollection(r.Context(), id, courierRegion(u)); err != nil {
+	if err := h.App.AcceptOrder(r.Context(), id, courierRegion(u)); err != nil {
 		httpx.Error(w, 400, err.Error())
 		return
 	}
 	httpx.JSON(w, 200, map[string]any{"ok": true})
+}
+
+type offerLine struct {
+	ProductID string `json:"productId"`
+	Quantity  int    `json:"quantity"`
 }
 
 func (h *Handler) CreateGroupBuy(w http.ResponseWriter, r *http.Request) {
@@ -748,6 +766,8 @@ func (h *Handler) CreateGroupBuy(w http.ResponseWriter, r *http.Request) {
 			PhotoURL              string   `json:"photoUrl"`
 			PhotoURLs             []string `json:"photoUrls"`
 			ProductID             string `json:"productId"`
+			Kind                  string `json:"kind"`
+			Items                 []offerLine `json:"items"`
 		}
 		if err := httpx.DecodeLoose(r, &body); err != nil {
 			httpx.Error(w, 400, "Noto‘g‘ri so‘rov")
@@ -769,12 +789,13 @@ func (h *Handler) CreateGroupBuy(w http.ResponseWriter, r *http.Request) {
 				g.PhotoURL = &body.PhotoURLs[0]
 			}
 		}
-		if len(g.PhotoURLs) < 1 || len(g.PhotoURLs) > 5 {
-			httpx.Error(w, 400, "1 tadan 5 tagacha rasm yuklang")
+		if err := h.applyOfferJSON(r, &g, body.Kind, body.ProductID, body.Items); err != nil {
+			httpx.Error(w, 400, err.Error())
 			return
 		}
-		if err := h.applyProduct(r, &g, body.ProductID); err != nil {
-			httpx.Error(w, 400, err.Error())
+		fillPhotosFromItems(&g)
+		if len(g.PhotoURLs) < 1 || len(g.PhotoURLs) > 5 {
+			httpx.Error(w, 400, "1 tadan 5 tagacha rasm yuklang")
 			return
 		}
 		if strings.TrimSpace(g.Title) == "" {
@@ -810,16 +831,20 @@ func (h *Handler) CreateGroupBuy(w http.ResponseWriter, r *http.Request) {
 		CashOnDeliveryAllowed: firstVal(r, "cashOnDeliveryAllowed") == "true" || firstVal(r, "cashOnDeliveryAllowed") == "1",
 	}
 	urls := h.readPhotoSlots(r)
-	if len(urls) < 1 || len(urls) > 5 {
-		httpx.Error(w, 400, "1 tadan 5 tagacha rasm yuklang")
-		return
-	}
 	g.PhotoURLs = urls
-	g.PhotoURL = &urls[0]
-	if err := h.applyProduct(r, &g, firstVal(r, "productId")); err != nil {
+	if len(urls) > 0 {
+		g.PhotoURL = &urls[0]
+	}
+	if err := h.applyOffer(r, &g, firstVal(r, "kind"), firstVal(r, "productId"), firstVal(r, "items")); err != nil {
 		httpx.Error(w, 400, err.Error())
 		return
 	}
+	fillPhotosFromItems(&g)
+	if len(g.PhotoURLs) < 1 || len(g.PhotoURLs) > 5 {
+		httpx.Error(w, 400, "1 tadan 5 tagacha rasm yuklang")
+		return
+	}
+	g.PhotoURL = &g.PhotoURLs[0]
 	if strings.TrimSpace(g.Title) == "" {
 		httpx.Error(w, 400, "Sarlavha kerak")
 		return
@@ -838,13 +863,15 @@ func (h *Handler) CreateGroupBuy(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) applyProduct(r *http.Request, g *models.GroupBuy, productID string) error {
 	productID = strings.TrimSpace(productID)
 	if productID == "" {
-		return nil
+		return fmt.Errorf("mahsulot tanlang")
 	}
 	p, err := h.App.Store.Product(r.Context(), productID)
 	if err != nil || p == nil {
 		return fmt.Errorf("mahsulot topilmadi")
 	}
+	g.Kind = "product"
 	g.ProductID = &p.ID
+	g.Items = []models.GroupBuyItem{{ProductID: p.ID, Quantity: 1, Name: p.Name, UnitLabel: p.UnitLabel, UnitPriceUzs: p.UnitPriceUzs, Stock: p.Stock, PhotoURL: p.PhotoURL}}
 	if strings.TrimSpace(g.Title) == "" {
 		g.Title = p.Name
 	}
@@ -854,13 +881,109 @@ func (h *Handler) applyProduct(r *http.Request, g *models.GroupBuy, productID st
 	if strings.TrimSpace(g.UnitLabel) == "" {
 		g.UnitLabel = p.UnitLabel
 	}
-	if g.UnitPriceUzs == 0 {
-		g.UnitPriceUzs = p.UnitPriceUzs
-	}
+	g.UnitPriceUzs = p.UnitPriceUzs
+	g.Stock = p.Stock
 	if g.PhotoURL == nil {
 		g.PhotoURL = p.PhotoURL
 	}
 	return nil
+}
+
+func (h *Handler) applyOffer(r *http.Request, g *models.GroupBuy, kind, productID, itemsJSON string) error {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	if kind == "combo" {
+		var lines []offerLine
+		if strings.TrimSpace(itemsJSON) != "" {
+			if err := json.Unmarshal([]byte(itemsJSON), &lines); err != nil {
+				return fmt.Errorf("combo mahsulotlari noto‘g‘ri")
+			}
+		}
+		return h.applyCombo(r, g, lines)
+	}
+	return h.applyProduct(r, g, productID)
+}
+
+func (h *Handler) applyOfferJSON(r *http.Request, g *models.GroupBuy, kind, productID string, lines []offerLine) error {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	if kind == "combo" {
+		return h.applyCombo(r, g, lines)
+	}
+	return h.applyProduct(r, g, productID)
+}
+
+func (h *Handler) applyCombo(r *http.Request, g *models.GroupBuy, lines []offerLine) error {
+	seen := map[string]int{}
+	var items []models.GroupBuyItem
+	var price int64
+	for _, line := range lines {
+		pid := strings.TrimSpace(line.ProductID)
+		qty := line.Quantity
+		if qty <= 0 {
+			qty = 1
+		}
+		if pid == "" {
+			continue
+		}
+		if _, ok := seen[pid]; ok {
+			return fmt.Errorf("combo ichida bir mahsulot takrorlanmasin")
+		}
+		p, err := h.App.Store.Product(r.Context(), pid)
+		if err != nil || p == nil {
+			return fmt.Errorf("mahsulot topilmadi")
+		}
+		seen[pid] = qty
+		items = append(items, models.GroupBuyItem{
+			ProductID: p.ID, Name: p.Name, UnitLabel: p.UnitLabel,
+			UnitPriceUzs: p.UnitPriceUzs, Quantity: qty, Stock: p.Stock, PhotoURL: p.PhotoURL,
+		})
+		price += p.UnitPriceUzs * int64(qty)
+	}
+	if len(items) < 2 {
+		return fmt.Errorf("comboda kamida 2 ta mahsulot bo‘lsin")
+	}
+	g.Kind = "combo"
+	g.Items = items
+	g.ProductID = &items[0].ProductID
+	g.UnitPriceUzs = price
+	if strings.TrimSpace(g.UnitLabel) == "" {
+		g.UnitLabel = "to‘plam"
+	}
+	if strings.TrimSpace(g.Title) == "" {
+		names := make([]string, 0, len(items))
+		for _, it := range items {
+			names = append(names, it.Name)
+		}
+		g.Title = strings.Join(names, " + ")
+	}
+	g.ApplySellStock()
+	return nil
+}
+
+func fillPhotosFromItems(g *models.GroupBuy) {
+	if len(g.PhotoURLs) >= 1 {
+		return
+	}
+	seen := map[string]struct{}{}
+	for _, it := range g.Items {
+		if it.PhotoURL == nil {
+			continue
+		}
+		u := strings.TrimSpace(*it.PhotoURL)
+		if u == "" {
+			continue
+		}
+		if _, ok := seen[u]; ok {
+			continue
+		}
+		seen[u] = struct{}{}
+		g.PhotoURLs = append(g.PhotoURLs, u)
+		if len(g.PhotoURLs) >= 5 {
+			break
+		}
+	}
+	if len(g.PhotoURLs) > 0 {
+		g.PhotoURL = &g.PhotoURLs[0]
+	}
 }
 
 func (h *Handler) readPhotoSlots(r *http.Request) []string {
@@ -949,30 +1072,28 @@ func (h *Handler) UpdateGroupBuy(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = r.ParseMultipartForm(32 << 20)
 	g := *cur
+	if title := strings.TrimSpace(firstVal(r, "title")); title != "" {
+		g.Title = title
+	}
 	min, _ := strconv.Atoi(firstVal(r, "minVolume"))
 	if min > 0 {
 		g.MinVolume = min
 	}
 	urls := h.readPhotoSlots(r)
-	if len(urls) < 1 || len(urls) > 5 {
+	g.PhotoURLs = urls
+	if len(urls) > 0 {
+		g.PhotoURL = &urls[0]
+	}
+	if err := h.applyOffer(r, &g, firstVal(r, "kind"), firstVal(r, "productId"), firstVal(r, "items")); err != nil {
+		httpx.Error(w, 400, err.Error())
+		return
+	}
+	fillPhotosFromItems(&g)
+	if len(g.PhotoURLs) < 1 || len(g.PhotoURLs) > 5 {
 		httpx.Error(w, 400, "1 tadan 5 tagacha rasm yuklang")
 		return
 	}
-	g.PhotoURLs = urls
-	g.PhotoURL = &urls[0]
-	productID := firstVal(r, "productId")
-	if productID != "" && cur.CurrentVolume == 0 {
-		g.Title = ""
-		g.Description = ""
-		g.UnitLabel = ""
-		g.UnitPriceUzs = 0
-		if err := h.applyProduct(r, &g, productID); err != nil {
-			httpx.Error(w, 400, err.Error())
-			return
-		}
-		g.PhotoURLs = urls
-		g.PhotoURL = &urls[0]
-	}
+	g.PhotoURL = &g.PhotoURLs[0]
 	if err := h.App.Store.UpdateGroupBuy(r.Context(), g); err != nil {
 		httpx.Error(w, 400, err.Error())
 		return
@@ -986,25 +1107,6 @@ func (h *Handler) DeleteGroupBuy(w http.ResponseWriter, r *http.Request) {
 	g, err := h.App.Store.GroupBuy(r.Context(), id)
 	if err != nil || g == nil {
 		httpx.Error(w, 404, "Yig‘im topilmadi")
-		return
-	}
-	if g.Status == "in_fulfillment" {
-		httpx.Error(w, 400, "kuryer qabul qilgan yig‘imni o‘chirib bo‘lmaydi")
-		return
-	}
-	has, err := h.App.Store.GroupBuyHasOrders(r.Context(), id)
-	if err != nil {
-		httpx.Error(w, 400, err.Error())
-		return
-	}
-	if has {
-		if g.Status == "open" || g.Status == "closed" || g.Status == "ready_for_payment" {
-			if err := h.App.CancelCollection(r.Context(), id); err != nil {
-				httpx.Error(w, 400, err.Error())
-				return
-			}
-		}
-		httpx.JSON(w, 200, map[string]any{"ok": true, "cancelled": true})
 		return
 	}
 	if err := h.App.Store.DeleteGroupBuy(r.Context(), id); err != nil {

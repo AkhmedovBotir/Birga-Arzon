@@ -216,7 +216,7 @@ export function Select({ label, options, className, value, onValueChange }: Sele
         </Text>
         <ChevronDown size={18} color="#5C6B63" />
       </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal visible={open} transparent animationType="none" onRequestClose={() => setOpen(false)}>
         <Pressable
           onPress={() => {
             setOpen(false);

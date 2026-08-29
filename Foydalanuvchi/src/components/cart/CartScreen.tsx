@@ -1,14 +1,31 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { ChevronLeft, CreditCard, MapPin, Truck, Wallet } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  CreditCard,
+  Home,
+  MapPin,
+  Plus,
+  Radio,
+  ShieldCheck,
+  ShoppingCart,
+  Sparkles,
+  Trash2,
+  Truck,
+  Wallet,
+} from 'lucide-react-native';
 import { errText, useI18n } from '@/src/i18n';
 import { QtyInput } from '@/src/components/ui/QtyInput';
 import { Button } from '@/src/components/ui/Base';
+import { LocationPicker } from '@/src/components/map/LocationPicker';
 import { HOME_DELIVERY_FEE_UZS, MIN_ORDER_UZS } from '@/src/config';
 import { useAuth } from '@/src/context/AuthContext';
 import { apiOrigin, apiRequest } from '@/src/lib/api';
 import { cardShadowStyle, formatCurrency, maxOrderQty, tw } from '@/src/lib/utils';
-import type { CartItem, DeliveryMethod } from '@/src/types';
+import type { CartItem, DeliveryMethod, PaymentProvider } from '@/src/types';
 
 type Step = 'cart' | 'checkout' | 'payment';
 
@@ -24,6 +41,7 @@ export function CartScreen({ onOrdered }: { onOrdered?: () => void }) {
   const { token, user, updateProfile } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
   const [method, setMethod] = useState<DeliveryMethod>(user?.deliveryLat ? 'home_delivery' : 'pickup_mfy');
+  const [payMethod, setPayMethod] = useState<'payme' | 'click' | 'balance' | 'cash'>('cash');
   const [step, setStep] = useState<Step>('cart');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,21 +74,6 @@ export function CartScreen({ onOrdered }: { onOrdered?: () => void }) {
     }
   };
 
-  const geo = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setError(t('onb_geoNone'));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude.toFixed(6));
-        setLng(pos.coords.longitude.toFixed(6));
-        setEditAddr(true);
-      },
-      () => setError(t('onb_geoDenied'))
-    );
-  };
-
   const saveAddress = async () => {
     setBusy(true);
     setError(null);
@@ -98,7 +101,15 @@ export function CartScreen({ onOrdered }: { onOrdered?: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await apiRequest('/api/orders', { method: 'POST', token, body: { deliveryMethod: method }, success: t('cust_ordered') });
+      await apiRequest('/api/orders', {
+        method: 'POST',
+        token,
+        body: {
+          deliveryMethod: method,
+          paymentProvider: payMethod === 'cash' ? 'cash_on_delivery' : payMethod,
+        },
+        success: t('cust_ordered'),
+      });
       await load();
       setStep('cart');
       onOrdered?.();
@@ -114,8 +125,6 @@ export function CartScreen({ onOrdered }: { onOrdered?: () => void }) {
   const total = sub + fee;
   const belowMin = sub < MIN_ORDER_UZS;
   const locLine = [user?.cityName, user?.deliveryAddress].filter(Boolean).join(' · ') || t('cust_noAddress');
-  const title =
-    step === 'payment' ? t('cust_paymentTitle') : step === 'checkout' ? t('cust_checkoutTitle') : t('cust_cartTitle');
 
   const goNext = () => {
     setError(null);
@@ -136,142 +145,217 @@ export function CartScreen({ onOrdered }: { onOrdered?: () => void }) {
 
   return (
     <View style={tw`flex-1`}>
-      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-4`}>
+      <ScrollView style={tw`flex-1`} contentContainerStyle={tw`pb-6`} showsVerticalScrollIndicator={false}>
+        {/* Top Header with Back button */}
         {step !== 'cart' ? (
-          <Pressable onPress={() => setStep(step === 'payment' ? 'checkout' : 'cart')} style={tw`flex-row items-center gap-1 mb-2 self-start py-1`}>
-            <ChevronLeft size={20} color="#0B3D2E" />
-            <Text style={tw`font-bold text-[#0B3D2E]`}>{t('common_back')}</Text>
-          </Pressable>
-        ) : null}
-        <Text style={tw`text-2xl font-extrabold text-[#14221B] mb-1`}>{title}</Text>
-        {step === 'cart' ? <Text style={tw`text-[#5C6B63] mb-3`}>{t('cust_cartHint')}</Text> : null}
-        {error ? <Text style={tw`text-red-600 mb-3`}>{error}</Text> : null}
+          <View style={tw`flex-row items-center gap-3 mb-4`}>
+            <Pressable
+              onPress={() => setStep(step === 'payment' ? 'checkout' : 'cart')}
+              style={tw`w-10 h-10 rounded-2xl bg-white border border-[#E8DFD0] items-center justify-center active:scale-95 shadow-sm`}
+            >
+              <ArrowLeft size={18} color="#0B3D2E" />
+            </Pressable>
+            <Text style={tw`text-xl sm:text-2xl font-black text-[#0f1c16] tracking-tight`}>
+              {step === 'payment' ? "Buyurtma to'lovi" : 'Buyurtma berish'}
+            </Text>
+          </View>
+        ) : (
+          <View style={tw`mb-4`}>
+            <Text style={tw`text-2xl sm:text-3xl font-black text-[#0f1c16] tracking-tight`}>
+              {t('cust_tabCart')}
+            </Text>
+            <Text style={tw`text-[#54665d] text-xs sm:text-sm mt-0.5`}>
+              {items.length} ta mahsulot
+            </Text>
+          </View>
+        )}
 
+        {error ? (
+          <View style={tw`p-3.5 bg-red-50 border border-red-200 rounded-2xl mb-4`}>
+            <Text style={tw`text-red-700 text-xs font-bold`}>{error}</Text>
+          </View>
+        ) : null}
+
+        {/* ================= STEP 1: CART ================= */}
         {step === 'cart' ? (
           <>
-            {items.length === 0 ? <Text style={tw`text-gray-500`}>{t('cust_cartEmpty')}</Text> : null}
+            {items.length === 0 ? (
+              <View style={tw`items-center text-center py-14 px-4 bg-white rounded-3xl border border-[#e8dfd0] mt-2`}>
+                <ShoppingCart size={42} color="#8c9c93" />
+                <Text style={tw`font-extrabold text-base text-[#0f1c16] mt-3`}>{t('cust_cartEmpty')}</Text>
+                <Text style={tw`text-[#54665d] text-xs mt-1 text-center max-w-[260px]`}>
+                  Savatda hech qanday tovar yo'q. Katalogdan qiziqarli jamoaviy takliflarni toping!
+                </Text>
+              </View>
+            ) : null}
+
             {items.map((it) => {
               const img = media(it.photoUrl);
+              const max = maxOrderQty(it.stock, it.currentVolume);
               return (
                 <View
                   key={it.groupBuyId}
-                  style={[tw`bg-white rounded-2xl p-3 mb-3 border border-[#E8DFD0] flex-row gap-3`, cardShadowStyle()]}
+                  style={[
+                    tw`bg-white rounded-3xl p-4 mb-3.5 border border-[#E8DFD0] flex-row gap-3.5 items-start shadow-sm`,
+                    cardShadowStyle(),
+                  ]}
                 >
-                  <View style={tw`w-16 h-16 rounded-xl bg-[#F6F1E8] overflow-hidden items-center justify-center`}>
+                  <View style={tw`w-20 h-20 rounded-2xl bg-[#fbf8f2] border border-[#e8dfd0] overflow-hidden items-center justify-center shrink-0`}>
                     {img ? (
-                      <Image source={{ uri: img }} resizeMode="contain" style={{ width: 64, height: 64 }} />
+                      <Image source={{ uri: img }} resizeMode="contain" style={{ width: 72, height: 72 }} />
                     ) : (
-                      <Text style={tw`text-[10px] text-[#8A968E]`}>{it.unitLabel}</Text>
+                      <Text style={tw`text-xs font-bold text-[#8c9c93]`}>{it.unitLabel}</Text>
                     )}
                   </View>
+
                   <View style={tw`flex-1 min-w-0`}>
-                    <Text style={tw`font-bold text-[#14221B]`} numberOfLines={2}>
+                    <Text style={tw`font-extrabold text-sm text-[#0f1c16] leading-4`} numberOfLines={2}>
                       {it.title}
                     </Text>
-                    <Text style={tw`text-[#1B7A4A] font-extrabold mt-0.5`}>
+                    <Text style={tw`text-[#1b7a4a] font-black text-sm mt-1`}>
                       {formatCurrency(it.unitPriceUzs)}
                     </Text>
-                    <Text style={tw`text-xs text-[#5C6B63] mt-0.5`}>
-                      {t('cust_inStock', { n: it.stock })}
+                    <Text style={tw`text-[11px] text-[#8c9c93] mt-0.5`}>
+                      {t('cust_inStock', { n: max })}
                     </Text>
-                    <View style={tw`mt-2`}>
+
+                    <View style={tw`mt-3 flex-row items-center justify-between`}>
                       <QtyInput
                         value={it.quantity}
                         min={0}
-                        max={maxOrderQty(it.stock, it.currentVolume)}
+                        max={max}
                         onChange={(n) => void qty(it.groupBuyId, n)}
                       />
+                      <Text style={tw`text-sm font-black text-[#0b3d2e]`}>
+                        {formatCurrency(it.unitPriceUzs * it.quantity)}
+                      </Text>
                     </View>
-                    <Text style={tw`text-xs text-[#5C6B63] mt-1`}>{t('cust_qtyHint')}</Text>
-                    <Text style={tw`text-xs text-[#5C6B63]`}>
-                      {t('cust_qtyMax', { n: maxOrderQty(it.stock, it.currentVolume) })}
-                    </Text>
                   </View>
                 </View>
               );
             })}
+
             {belowMin && items.length > 0 ? (
-              <Text style={tw`text-amber-800 mb-2 text-sm`}>
-                {t('cust_minOrderNeed', { sum: formatCurrency(MIN_ORDER_UZS), now: formatCurrency(sub) })}
-              </Text>
+              <View style={tw`p-3.5 bg-amber-50 border border-amber-200 rounded-2xl mb-3`}>
+                <Text style={tw`text-amber-900 text-xs font-bold leading-5`}>
+                  {t('cust_minOrderNeed', { sum: formatCurrency(MIN_ORDER_UZS), now: formatCurrency(sub) })}
+                </Text>
+              </View>
             ) : null}
           </>
         ) : null}
 
+        {/* ================= STEP 2: CHECKOUT (2-rasmdagi dizayn) ================= */}
         {step === 'checkout' ? (
           <>
-            <Text style={tw`font-extrabold text-[#14221B] mb-2`}>{t('cust_howGet')}</Text>
-            <View style={tw`flex-row gap-2 mb-4`}>
-              <Pressable
-                onPress={() => setMethod('home_delivery')}
-                style={[
-                  tw`flex-1 py-3 px-2 rounded-2xl items-center border`,
-                  {
-                    backgroundColor: method === 'home_delivery' ? '#0B3D2E' : '#fff',
-                    borderColor: method === 'home_delivery' ? '#0B3D2E' : '#E8DFD0',
-                  },
-                ]}
-              >
-                <Truck size={18} color={method === 'home_delivery' ? '#C4A35A' : '#5C6B63'} />
-                <Text
-                  style={tw`mt-1 text-center text-[12px] font-bold ${method === 'home_delivery' ? 'text-[#C4A35A]' : 'text-[#14221B]'}`}
-                >
-                  {t('cust_delivery')}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setMethod('pickup_mfy')}
-                style={[
-                  tw`flex-1 py-3 px-2 rounded-2xl items-center border`,
-                  {
-                    backgroundColor: method === 'pickup_mfy' ? '#0B3D2E' : '#fff',
-                    borderColor: method === 'pickup_mfy' ? '#0B3D2E' : '#E8DFD0',
-                  },
-                ]}
-              >
-                <MapPin size={18} color={method === 'pickup_mfy' ? '#C4A35A' : '#5C6B63'} />
-                <Text
-                  style={tw`mt-1 text-center text-[12px] font-bold ${method === 'pickup_mfy' ? 'text-[#C4A35A]' : 'text-[#14221B]'}`}
-                >
-                  {t('cust_pickup')}
-                </Text>
-              </Pressable>
-            </View>
+            {/* Olish usuli Card */}
+            <View style={[tw`bg-white rounded-3xl p-5 mb-4 border border-[#e8dfd0] shadow-sm`, cardShadowStyle()]}>
+              <Text style={tw`font-black text-base text-[#0f1c16] mb-3`}>Olish usuli</Text>
 
-            <View style={[tw`bg-white rounded-2xl p-4 mb-3 border border-[#E8DFD0]`, cardShadowStyle()]}>
-              <Text style={tw`text-[11px] font-bold uppercase tracking-wide text-[#C4A35A] mb-2`}>
-                {t('cust_addressTitle')}
-              </Text>
-              <Text style={tw`font-extrabold text-[#14221B]`}>
-                {[user?.firstName, user?.lastName].filter(Boolean).join(' ')}
-              </Text>
-              <Text style={tw`text-[#5C6B63] mt-0.5`}>{user?.phoneMasked || user?.phone}</Text>
-              <Text style={tw`text-[#14221B] mt-1`}>{locLine}</Text>
-              {method === 'home_delivery' ? (
-                <Text style={tw`text-xs text-[#5C6B63] mt-1`}>{t('cust_homeFee', { fee: formatCurrency(HOME_DELIVERY_FEE_UZS) })}</Text>
-              ) : (
-                <Text style={tw`text-xs text-[#5C6B63] mt-1`}>{t('cust_pickupFree')}</Text>
-              )}
+              {/* Segmented Switcher Tab (Yetkazib berish | Olib ketish) */}
+              <View style={tw`flex-row bg-[#f0ece1] p-1 rounded-2xl mb-3 border border-[#e8dfd0]`}>
+                <Pressable
+                  onPress={() => setMethod('home_delivery')}
+                  style={[
+                    tw`flex-1 py-3 px-2 rounded-xl items-center justify-center transition-all`,
+                    method === 'home_delivery'
+                      ? tw`bg-[#0b3d2e] shadow-md`
+                      : tw`bg-transparent`,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      tw`text-sm font-extrabold tracking-tight`,
+                      method === 'home_delivery' ? tw`text-white` : tw`text-[#0f1c16]`,
+                    ]}
+                  >
+                    Yetkazib berish
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setMethod('pickup_mfy')}
+                  style={[
+                    tw`flex-1 py-3 px-2 rounded-xl items-center justify-center transition-all`,
+                    method === 'pickup_mfy'
+                      ? tw`bg-[#0b3d2e] shadow-md`
+                      : tw`bg-transparent`,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      tw`text-sm font-extrabold tracking-tight`,
+                      method === 'pickup_mfy' ? tw`text-white` : tw`text-[#0f1c16]`,
+                    ]}
+                  >
+                    Olib ketish
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Oxirgi tanlangan tag */}
+              <View style={tw`flex-row justify-end mb-3`}>
+                <View style={tw`px-3 py-1 bg-[#0f1c16] rounded-xl`}>
+                  <Text style={tw`text-[10.5px] font-bold text-white`}>Oxirgi tanlangan</Text>
+                </View>
+              </View>
+
+              {/* Address / Pickup point details sub-card */}
+              <View style={tw`p-4 bg-[#fbf8f2] rounded-2xl border border-[#e8dfd0] mb-3`}>
+                <View style={tw`flex-row items-center gap-3 mb-1.5`}>
+                  <View style={tw`w-10 h-10 rounded-2xl bg-[#0b3d2e] items-center justify-center`}>
+                    {method === 'home_delivery' ? (
+                      <Home size={18} color="#d4af37" />
+                    ) : (
+                      <MapPin size={18} color="#d4af37" />
+                    )}
+                  </View>
+                  <View style={tw`flex-1`}>
+                    <Text style={tw`font-black text-sm text-[#0f1c16]`}>
+                      {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Foydalanuvchi'}
+                    </Text>
+                    <Text style={tw`text-xs text-[#54665d] font-semibold mt-0.5`}>
+                      {user?.phoneMasked || user?.phone} • {user?.cityName || 'Andijon'}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={tw`text-xs font-bold text-[#0b3d2e] mt-1`}>
+                  {method === 'home_delivery'
+                    ? user?.deliveryAddress || "Manzil kiritilmagan (Xonadongacha yetkazib berish)"
+                    : user?.mfyName ? `${user.mfyName} MFY topshirish punkti (Bepul)` : "Mahalla MFY punkti"}
+                </Text>
+              </View>
+
+              {/* Boshqa manzilni tanlash button */}
               <Pressable
                 onPress={() => setEditAddr((v) => !v)}
-                style={tw`mt-3 py-3 rounded-xl bg-[#F6F1E8] items-center`}
+                style={tw`py-3 px-4 rounded-2xl bg-[#f0ece1] border border-[#e8dfd0] items-center justify-center active:scale-[0.99]`}
               >
-                <Text style={tw`font-bold text-[#0B3D2E]`}>{t('cust_changeAddress')}</Text>
+                <Text style={tw`font-extrabold text-xs text-[#0f1c16]`}>Boshqa manzilni tanlash</Text>
               </Pressable>
+
+              {/* Expandable Location / Address Picker */}
               {editAddr ? (
-                <View style={tw`mt-3 gap-2`}>
+                <View style={tw`mt-4 gap-3 pt-3 border-t border-[#e8dfd0]`}>
+                  <LocationPicker
+                    lat={lat}
+                    lng={lng}
+                    address={address}
+                    onChange={(v) => {
+                      setLat(v.lat);
+                      setLng(v.lng);
+                      if (v.address) setAddress(v.address);
+                    }}
+                    onError={setError}
+                  />
                   <TextInput
                     value={address}
                     onChangeText={setAddress}
                     placeholder={t('onb_street')}
                     placeholderTextColor="#9AA59D"
-                    style={tw`px-3 py-3 bg-[#F8F4EC] rounded-xl border border-[#E8DFD0] text-[#14221B]`}
+                    style={tw`px-4 py-3 bg-[#F8F4EC] rounded-2xl border border-[#E8DFD0] text-[#14221B] text-sm`}
                   />
-                  <Pressable onPress={geo} style={tw`py-2 flex-row items-center gap-2`}>
-                    <MapPin size={16} color="#0B3D2E" />
-                    <Text style={tw`text-[#0B3D2E] font-semibold`}>{t('onb_geoBtn')}</Text>
-                  </Pressable>
-                  {lat && lng ? <Text style={tw`text-xs text-[#5C6B63]`}>{t('onb_point', { lat, lng })}</Text> : null}
                   <Button disabled={busy} onPress={() => void saveAddress()}>
                     {busy ? t('common_saving') : t('cust_saveAddress')}
                   </Button>
@@ -279,77 +363,254 @@ export function CartScreen({ onOrdered }: { onOrdered?: () => void }) {
               ) : null}
             </View>
 
-            {items.map((it) => (
-              <View key={it.groupBuyId} style={tw`flex-row justify-between py-2 border-b border-[#F0E8D8]`}>
-                <Text style={tw`flex-1 pr-2 text-[#14221B]`} numberOfLines={2}>
-                  {it.title} · {it.quantity} {it.unitLabel}
-                </Text>
-                <Text style={tw`font-bold text-[#0B3D2E]`}>{formatCurrency(it.unitPriceUzs * it.quantity)}</Text>
+            {/* Yetkazib berish shartlari Card */}
+            <View style={[tw`bg-white rounded-3xl p-5 mb-4 border border-[#e8dfd0] shadow-sm`, cardShadowStyle()]}>
+              <View style={tw`flex-row items-center gap-3 mb-2.5`}>
+                <View style={tw`w-10 h-10 rounded-2xl bg-[#0b3d2e] items-center justify-center`}>
+                  <Truck size={18} color="#d4af37" />
+                </View>
+                <View>
+                  <Text style={tw`font-black text-sm text-[#0f1c16]`}>
+                    {method === 'pickup_mfy' ? 'Bepul yetkazib berish' : 'Xonadongacha yetkazib berish'}
+                  </Text>
+                  <Text style={tw`text-[11px] text-[#54665d]`}>Tezkor va ishonchli xizmat</Text>
+                </View>
               </View>
-            ))}
+
+              <Text style={tw`text-xs text-[#54665d] leading-5 font-medium`}>
+                • Mahalladagi MFY topshirish punktlarigacha yetkazish — <Text style={tw`font-bold text-[#1b7a4a]`}>mutlaqo bepul</Text>.
+              </Text>
+              {method === 'home_delivery' ? (
+                <Text style={tw`text-xs text-[#54665d] leading-5 font-medium mt-1`}>
+                  • Kuryer orqali eshikkacha yetkazib berish: <Text style={tw`font-bold text-[#b8913b]`}>+{formatCurrency(HOME_DELIVERY_FEE_UZS)}</Text>.
+                </Text>
+              ) : null}
+            </View>
+
+            {/* Buyurtmadagi tovarlar qisqacha ro'yxati */}
+            <View style={[tw`bg-white rounded-3xl p-5 mb-4 border border-[#e8dfd0] shadow-sm`, cardShadowStyle()]}>
+              <Text style={tw`font-black text-sm text-[#0f1c16] mb-3`}>Buyurtma tarkibi</Text>
+              {items.map((it) => {
+                const img = media(it.photoUrl);
+                return (
+                  <View key={it.groupBuyId} style={tw`flex-row items-center gap-3 py-2.5 border-b border-gray-100 last:border-0`}>
+                    <View style={tw`w-14 h-14 rounded-2xl bg-[#fbf8f2] border border-[#e8dfd0] overflow-hidden items-center justify-center shrink-0`}>
+                      {img ? (
+                        <Image source={{ uri: img }} resizeMode="contain" style={{ width: 48, height: 48 }} />
+                      ) : (
+                        <Text style={tw`text-[10px] font-bold text-[#8c9c93]`}>{it.unitLabel}</Text>
+                      )}
+                    </View>
+                    <View style={tw`flex-1 min-w-0`}>
+                      <Text style={tw`font-bold text-xs text-[#0f1c16]`} numberOfLines={1}>
+                        {it.title}
+                      </Text>
+                      <Text style={tw`text-xs font-black text-[#1b7a4a] mt-0.5`}>
+                        {formatCurrency(it.unitPriceUzs)}
+                      </Text>
+                    </View>
+                    <Text style={tw`text-xs font-bold text-[#54665d]`}>
+                      {it.quantity} dona
+                    </Text>
+                  </View>
+                );
+              })}
+
+              <View style={tw`mt-3 pt-3 border-t border-[#e8dfd0] flex-row justify-between items-center`}>
+                <Text style={tw`text-xs font-bold text-[#54665d]`}>Ichki yetkazib berish</Text>
+                <Text style={tw`text-xs font-extrabold text-[#0f1c16]`}>
+                  {method === 'home_delivery' ? formatCurrency(HOME_DELIVERY_FEE_UZS) : 'Bepul'}
+                </Text>
+              </View>
+            </View>
           </>
         ) : null}
 
+        {/* ================= STEP 3: PAYMENT (3-rasmdagi dizayn) ================= */}
         {step === 'payment' ? (
           <>
-            <View style={[tw`rounded-3xl p-5 mb-4 items-center`, { backgroundColor: '#0B3D2E' }]}>
-              <Wallet size={28} color="#C4A35A" />
-              <Text style={tw`text-[#9BB5A8] mt-3`}>{t('cust_paymentAmount')}</Text>
-              <Text style={tw`text-2xl font-extrabold text-[#C4A35A] mt-1`}>{formatCurrency(total)}</Text>
+            {/* Top Luxury Dark Amount Card */}
+            <View
+              style={[
+                tw`rounded-3xl p-6 mb-5 items-center border border-[#d4af37]/30 shadow-xl overflow-hidden`,
+                {
+                  background: 'linear-gradient(145deg, #051b14 0%, #0b3d2e 55%, #12543e 100%)',
+                } as any,
+              ]}
+            >
+              {/* Wallet Icon with Golden Glow */}
+              <View style={tw`w-14 h-14 rounded-2xl bg-[#d4af37]/20 border border-[#d4af37]/40 items-center justify-center mb-3 shadow-inner`}>
+                <Wallet size={26} color="#d4af37" />
+              </View>
+
+              <Text style={tw`text-[#daf3e5] text-xs font-extrabold uppercase tracking-wider`}>
+                To'lov summasi:
+              </Text>
+              <Text style={tw`text-3xl sm:text-4xl font-black text-[#d4af37] mt-1 tracking-tight`}>
+                {formatCurrency(total)}
+              </Text>
+
+              {/* Status Pill */}
+              <View style={tw`mt-4 px-4 py-1.5 rounded-full bg-white/10 border border-white/15 flex-row items-center gap-1.5`}>
+                <ShieldCheck size={14} color="#52d68e" />
+                <Text style={tw`text-[#daf3e5] text-xs font-bold`}>
+                  Xavfsiz va kafolatlangan to'lov
+                </Text>
+              </View>
             </View>
 
-            <Text style={tw`font-extrabold text-[#14221B] mb-2`}>{t('cust_payMethod')}</Text>
+            <Text style={tw`font-black text-base text-[#0f1c16] mb-3`}>To'lov usuli</Text>
 
-            <View style={[tw`bg-white rounded-2xl p-4 mb-3 border border-[#E8DFD0] opacity-60`, cardShadowStyle()]}>
-              <View style={tw`flex-row items-center justify-between`}>
-                <View style={tw`flex-row items-center gap-3 flex-1 pr-2`}>
-                  <CreditCard size={22} color="#8A968E" />
-                  <View style={tw`flex-1`}>
-                    <Text style={tw`font-bold text-[#14221B]`}>{t('cust_payCard')}</Text>
-                    <Text style={tw`text-xs text-[#5C6B63] mt-0.5`}>{t('cust_payCardHint')}</Text>
+            {/* Option 1: Payme Card (Disabled - Tez kunda) */}
+            <View
+              style={[
+                tw`bg-white rounded-3xl p-4 mb-3 border border-[#e8dfd0] opacity-70 shadow-sm`,
+                cardShadowStyle(),
+              ]}
+            >
+              <View style={tw`flex-row items-center justify-between mb-3`}>
+                <View style={tw`flex-row items-center gap-3`}>
+                  <View style={tw`px-3 py-1 rounded-xl bg-[#00cccc]/15 border border-[#00cccc]/30`}>
+                    <Text style={tw`text-xs font-black text-[#008b8b] tracking-wider`}>Payme</Text>
                   </View>
+                  <Text style={tw`font-black text-sm text-[#0f1c16]`}>Payme</Text>
                 </View>
-                <View style={tw`px-2 py-1 rounded-full bg-[#F6F1E8]`}>
-                  <Text style={tw`text-[10px] font-extrabold text-[#C4A35A] uppercase`}>{t('cust_paySoon')}</Text>
+
+                {/* Tez kunda badge */}
+                <View style={tw`px-3 py-1 rounded-full bg-[#fdfaf3] border border-[#e8dfd0]`}>
+                  <Text style={tw`text-[10.5px] font-black text-[#b8913b] uppercase tracking-wider`}>
+                    Tez kunda
+                  </Text>
+                </View>
+              </View>
+
+              {/* Uzcard & Humo Sub-card */}
+              <View style={tw`p-3 bg-[#f6f8f7] rounded-2xl border border-[#e8dfd0] flex-row items-center gap-4`}>
+                <View style={tw`flex-row items-center gap-2`}>
+                  <View style={tw`w-6 h-6 rounded-lg bg-[#0052cc] items-center justify-center`}>
+                    <Text style={tw`text-[9px] font-black text-white`}>Uz</Text>
+                  </View>
+                  <Text style={tw`text-xs font-extrabold text-[#0f1c16]`}>Uzcard</Text>
+                </View>
+
+                <View style={tw`h-4 w-[1px] bg-gray-300`} />
+
+                <View style={tw`flex-row items-center gap-2`}>
+                  <View style={tw`w-6 h-6 rounded-lg bg-[#b8913b] items-center justify-center`}>
+                    <Text style={tw`text-[9px] font-black text-white`}>H</Text>
+                  </View>
+                  <Text style={tw`text-xs font-extrabold text-[#0f1c16]`}>Humo</Text>
                 </View>
               </View>
             </View>
 
-            <View style={[tw`bg-white rounded-2xl p-4 mb-3 border-2 border-[#0B3D2E]`, cardShadowStyle()]}>
-              <View style={tw`flex-row items-center justify-between`}>
-                <View style={tw`flex-row items-center gap-3 flex-1 pr-2`}>
-                  <Wallet size={22} color="#0B3D2E" />
-                  <View style={tw`flex-1`}>
-                    <Text style={tw`font-bold text-[#14221B]`}>{t('cust_payManual')}</Text>
-                    <Text style={tw`text-xs text-[#5C6B63] mt-0.5`}>{t('cust_payManualHint')}</Text>
+            {/* Option 2: Balans / Qabul qilganda to'lash (Active Default) */}
+            <Pressable
+              onPress={() => setPayMethod('cash')}
+              style={[
+                tw`bg-white rounded-3xl p-4 mb-3 border-2 transition-all shadow-sm active:scale-[0.99]`,
+                payMethod === 'cash'
+                  ? tw`border-[#0b3d2e] bg-white`
+                  : tw`border-[#e8dfd0]`,
+                cardShadowStyle(),
+              ]}
+            >
+              <View style={tw`flex-row items-center justify-between mb-3`}>
+                <View style={tw`flex-row items-center gap-3`}>
+                  <View style={tw`w-9 h-9 rounded-2xl bg-[#0b3d2e] items-center justify-center`}>
+                    <Wallet size={18} color="#d4af37" />
                   </View>
+                  <Text style={tw`font-black text-sm text-[#0f1c16]`}>
+                    Balans orqali to'lash / Qabul qilganda
+                  </Text>
                 </View>
-                <View style={tw`w-5 h-5 rounded-full border-2 border-[#0B3D2E] items-center justify-center`}>
-                  <View style={tw`w-2.5 h-2.5 rounded-full bg-[#0B3D2E]`} />
+
+                <View
+                  style={[
+                    tw`w-6 h-6 rounded-full border-2 items-center justify-center`,
+                    payMethod === 'cash' ? tw`border-[#0b3d2e]` : tw`border-[#8c9c93]`,
+                  ]}
+                >
+                  {payMethod === 'cash' ? <View style={tw`w-3 h-3 rounded-full bg-[#0b3d2e]`} /> : null}
                 </View>
               </View>
-            </View>
-            <Text style={tw`text-xs text-[#5C6B63] leading-5`}>{t('cust_orderHint')}</Text>
+
+              {/* Sub-container */}
+              <View style={tw`p-3 bg-[#f6f8f7] rounded-2xl border border-[#e8dfd0]`}>
+                <View style={tw`flex-row justify-between items-center mb-2`}>
+                  <Text style={tw`text-xs text-[#54665d] font-semibold`}>Mavjud balans</Text>
+                  <Text style={tw`text-xs font-black text-[#0f1c16]`}>0 so'm</Text>
+                </View>
+                <View style={tw`py-2 rounded-xl bg-[#ede6da] items-center justify-center flex-row gap-1.5 border border-[#e8dfd0]`}>
+                  <Plus size={13} color="#0f1c16" />
+                  <Text style={tw`text-xs font-extrabold text-[#0f1c16]`}>Balans to'ldirish</Text>
+                </View>
+              </View>
+            </Pressable>
           </>
         ) : null}
       </ScrollView>
 
+      {/* ================= STICKY BOTTOM BAR ================= */}
       {items.length > 0 ? (
-        <View style={[tw`pt-3 pb-1 border-t border-[#E8DFD0] bg-[#F6F1E8] flex-row items-center gap-3`]}>
-          <View style={tw`flex-1 min-w-0`}>
-            <Text style={tw`text-[11px] text-[#5C6B63]`}>{t('cust_toPay')}</Text>
-            <Text style={tw`text-base font-extrabold text-[#0B3D2E]`} numberOfLines={1}>
+        <View
+          style={[
+            tw`pt-3.5 pb-3 px-4 border-t border-[#E8DFD0] flex-row items-center justify-between gap-3 shadow-2xl`,
+            step === 'payment'
+              ? { background: 'linear-gradient(180deg, #0b3d2e 0%, #051b14 100%)' } as any
+              : tw`bg-white rounded-t-3xl`,
+          ]}
+        >
+          <View style={tw`min-w-0 flex-1 pl-1`}>
+            <View style={tw`flex-row items-center gap-1.5`}>
+              {step === 'payment' ? <CreditCard size={14} color="#d4af37" /> : null}
+              <Text
+                style={[
+                  tw`text-[11px] font-bold uppercase tracking-wider`,
+                  step === 'payment' ? tw`text-[#daf3e5]` : tw`text-[#8c9c93]`,
+                ]}
+              >
+                To'lovga:
+              </Text>
+            </View>
+            <Text
+              style={[
+                tw`text-lg sm:text-xl font-black tracking-tight mt-0.5`,
+                step === 'payment' ? tw`text-[#d4af37]` : tw`text-[#0b3d2e]`,
+              ]}
+              numberOfLines={1}
+            >
               {formatCurrency(total)}
             </Text>
           </View>
+
           {step === 'payment' ? (
-            <Button disabled={busy || belowMin} onPress={() => void checkout()} style={tw`flex-1 max-w-[210px]`}>
-              {busy ? t('common_processing') : t('cust_confirmPay')}
-            </Button>
+            <Pressable
+              disabled={busy || belowMin}
+              onPress={() => void checkout()}
+              style={[
+                tw`px-6 py-3.5 rounded-2xl items-center justify-center shadow-lg active:scale-95 transition-all`,
+                {
+                  background: 'linear-gradient(135deg, #f5d77f 0%, #d4af37 100%)',
+                } as any,
+              ]}
+            >
+              <Text style={tw`text-[#051b14] font-black text-sm tracking-tight`}>
+                {busy ? t('common_processing') : "To'lovni tasdiqlash"}
+              </Text>
+            </Pressable>
           ) : (
-            <Button disabled={belowMin} onPress={goNext} style={tw`flex-1 max-w-[210px]`}>
-              {step === 'cart' ? t('cust_continueApp') : t('common_continue')}
-            </Button>
+            <Pressable
+              disabled={belowMin}
+              onPress={goNext}
+              style={[
+                tw`px-6 py-3.5 rounded-2xl items-center justify-center shadow-lg active:scale-95 transition-all bg-[#0b3d2e]`,
+              ]}
+            >
+              <Text style={tw`text-white font-black text-sm tracking-tight`}>
+                {step === 'cart' ? 'Buyurtma berish' : 'Buyurtma berish'}
+              </Text>
+            </Pressable>
           )}
         </View>
       ) : null}
