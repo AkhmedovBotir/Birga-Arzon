@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
+  Check,
   CheckCircle2,
   Heart,
   Info,
@@ -10,6 +11,7 @@ import {
   MapPin,
   Package,
   Scale,
+  Share2,
   ShoppingCart,
   Target,
   Truck,
@@ -23,8 +25,10 @@ import {
 } from '../api/client'
 import { formatSom, mediaUrl } from '../config'
 import { useCart, yigimCartKey } from '../cart/CartContext'
+import { useFavorites } from '../favorites/FavoritesContext'
 import { YigimCard, type YigimCardData } from '../components/YigimCard'
 import { YigimProgress } from '../components/YigimProgress'
+import { useSEO } from '../lib/seo'
 
 function unitLabel(unit: string) {
   if (unit === 'litr') return 'l'
@@ -45,15 +49,22 @@ export function YigimDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { upsert, getByKey } = useCart()
+  const { isFavorite, toggleFavorite } = useFavorites()
   const [yigim, setYigim] = useState<Yigim | null>(null)
+  useSEO(
+    yigim?.name ? `${yigim.name}` : 'Yig‘im tafsilotlari',
+    yigim?.name
+      ? `${yigim.name} mahsulotini Birga Arzon orqali birgalikda ommaviy arzon narxda xarid qiling!`
+      : undefined
+  )
   const [product, setProduct] = useState<ProductDetail | null>(null)
   const [products, setProducts] = useState<ProductListItem[]>([])
   const [related, setRelated] = useState<YigimCardData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [qty, setQty] = useState(1)
-  const [fav, setFav] = useState(false)
   const [activeImg, setActiveImg] = useState(0)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -263,6 +274,46 @@ export function YigimDetailPage() {
     navigate('/savat')
   }
 
+  const onShare = async () => {
+    const url = window.location.href
+    const shareTitle = title || 'Birga Arzon'
+    const shareText = `${shareTitle} — Birga Arzon bilan birgalikda arzonroq xarid qiling!`
+
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.share &&
+      navigator.canShare?.({ title: shareTitle, text: shareText, url })
+    ) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url,
+        })
+        return
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return
+      }
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = url
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2500)
+    } catch {
+      /* ignore */
+    }
+  }
+
   const howSteps = [
     {
       Icon: ShoppingCart,
@@ -286,11 +337,11 @@ export function YigimDetailPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-24 md:space-y-6 md:pb-8">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[var(--muted)] transition hover:text-[var(--ink)]"
+          className="inline-flex shrink-0 items-center gap-1.5 text-sm font-extrabold text-[var(--muted)] transition hover:text-[var(--ink)]"
         >
           <ArrowLeft size={16} />
           {t('common.back')}
@@ -298,15 +349,15 @@ export function YigimDetailPage() {
         {product?.category_id && (
           <Link
             to={`/kategoriyalar?cat=${encodeURIComponent(product.category_id)}`}
-            className="text-sm font-extrabold text-[var(--brand)]"
+            className="min-w-0 truncate text-right text-sm font-extrabold text-[var(--brand)]"
           >
             {product.category_name} →
           </Link>
         )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-start lg:gap-6">
-        <div className="space-y-3">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-start lg:gap-6">
+        <div className="min-w-0 space-y-3">
           <div className="relative overflow-hidden rounded-[1.5rem] bg-[var(--sand)] shadow-[var(--shadow-card)] ring-1 ring-[var(--line)]">
             <div className="aspect-[4/3] sm:aspect-[5/4] lg:aspect-[4/3]">
               {imgSrc ? (
@@ -331,25 +382,49 @@ export function YigimDetailPage() {
                 className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase ${
                   isOpen
                     ? 'bg-[var(--green-soft)] text-[var(--green)]'
-                    : 'bg-slate-100 text-slate-600'
+                    : 'bg-rose-100 text-rose-700'
                 }`}
               >
-                {isOpen ? t('yigim.open') : t('yigim.closedShort')}
+                {isOpen ? t('yigim.open') : t('favorites.closed')}
               </span>
               <span className="rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-extrabold text-[var(--ink)] shadow-sm">
                 {isCombo ? t('yigim.combo') : t('yigim.simple')}
               </span>
             </div>
-            <button
-              type="button"
-              aria-label={t('common.favorite')}
-              onClick={() => setFav((v) => !v)}
-              className={`absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-sm transition ${
-                fav ? 'text-rose-500' : 'text-[var(--muted)]'
-              }`}
-            >
-              <Heart size={18} fill={fav ? 'currentColor' : 'none'} />
-            </button>
+            <div className="absolute top-3 right-3 flex items-center gap-2">
+              <button
+                type="button"
+                aria-label={t('common.share')}
+                title={t('common.share')}
+                onClick={onShare}
+                className={`flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-sm transition active:scale-90 ${
+                  copied
+                    ? 'text-[var(--green)]'
+                    : 'text-[var(--muted)] hover:text-[var(--brand)]'
+                }`}
+              >
+                {copied ? <Check size={18} /> : <Share2 size={18} />}
+              </button>
+              <button
+                type="button"
+                aria-label={t('common.favorite')}
+                onClick={() => yigim && toggleFavorite(yigim.id)}
+                className={`flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-sm transition active:scale-90 ${
+                  (yigim ? isFavorite(yigim.id) : false)
+                    ? 'text-rose-500 fill-rose-500'
+                    : 'text-[var(--muted)] hover:text-rose-500'
+                }`}
+              >
+                <Heart
+                  size={18}
+                  fill={
+                    (yigim ? isFavorite(yigim.id) : false)
+                      ? 'currentColor'
+                      : 'none'
+                  }
+                />
+              </button>
+            </div>
           </div>
 
           {images.length > 1 && (
@@ -376,17 +451,33 @@ export function YigimDetailPage() {
           )}
         </div>
 
-        <div className="space-y-4 rounded-[1.5rem] bg-white p-5 shadow-[var(--shadow-card)] ring-1 ring-[var(--line)] sm:p-6">
+        <div className="min-w-0 space-y-4 rounded-[1.5rem] bg-white p-4 shadow-[var(--shadow-card)] ring-1 ring-[var(--line)] sm:p-6">
           <div>
-            <p className="text-xs font-extrabold tracking-wide text-[var(--brand)] uppercase">
-              {isCombo ? t('yigim.comboPool') : t('yigim.productPool')}
-            </p>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[var(--ink)] sm:text-[1.85rem]">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-extrabold tracking-wide text-[var(--brand)] uppercase">
+                {isCombo ? t('yigim.comboPool') : t('yigim.productPool')}
+              </p>
+              <button
+                type="button"
+                onClick={onShare}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[var(--sand)] px-2.5 py-1 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--sand-deep)] active:scale-95"
+              >
+                {copied ? (
+                  <Check size={13} className="text-[var(--green)]" />
+                ) : (
+                  <Share2 size={13} />
+                )}
+                <span>
+                  {copied ? t('common.linkCopied') : t('common.share')}
+                </span>
+              </button>
+            </div>
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[var(--ink)] break-words sm:text-[1.85rem]">
               {title}
             </h1>
-            <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--muted)]">
-              <MapPin size={14} className="text-[var(--brand)]" />
-              {location}
+            <p className="mt-2 inline-flex max-w-full items-center gap-1.5 text-sm font-semibold text-[var(--muted)] truncate">
+              <MapPin size={14} className="shrink-0 text-[var(--brand)]" />
+              <span className="truncate">{location}</span>
             </p>
           </div>
 
@@ -406,54 +497,67 @@ export function YigimDetailPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="flex items-center rounded-xl bg-[var(--sand)] p-0.5 sm:p-1">
-              <button
-                type="button"
-                className="flex h-11 w-10 items-center justify-center rounded-lg text-lg font-extrabold text-[var(--ink)] sm:w-11"
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
-              >
-                −
-              </button>
-              <span className="w-8 text-center text-sm font-extrabold sm:w-9">
-                {qty}
-              </span>
-              <button
-                type="button"
-                className="flex h-11 w-10 items-center justify-center rounded-lg text-lg font-extrabold text-[var(--ink)] sm:w-11"
-                onClick={() => setQty((q) => q + 1)}
-              >
-                +
-              </button>
+          {isOpen ? (
+            <>
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex items-center justify-between rounded-xl bg-[var(--sand)] p-1 sm:justify-center">
+                  <span className="px-2.5 text-xs font-bold text-[var(--muted)] sm:hidden">
+                    {t('cart.qty') || 'Miqdor'}:
+                  </span>
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg text-lg font-extrabold text-[var(--ink)] transition hover:bg-black/5 active:scale-95 sm:h-11 sm:w-11"
+                      onClick={() => setQty((q) => Math.max(1, q - 1))}
+                      aria-label="Kamaytirish"
+                    >
+                      −
+                    </button>
+                    <span className="w-9 text-center text-sm font-extrabold">
+                      {qty}
+                    </span>
+                    <button
+                      type="button"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg text-lg font-extrabold text-[var(--ink)] transition hover:bg-black/5 active:scale-95 sm:h-11 sm:w-11"
+                      onClick={() => setQty((q) => q + 1)}
+                      aria-label="Ko'paytirish"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onJoin}
+                  className="ba-btn min-w-0 flex-1 rounded-xl px-4 py-3 text-sm sm:py-3.5"
+                >
+                  <ShoppingCart size={16} className="shrink-0" />
+                  <span className="truncate">
+                    {inCart ? t('yigim.update') : t('yigim.join')}
+                    {lineTotal != null && (
+                      <span className="opacity-90"> · {formatSom(lineTotal)}</span>
+                    )}
+                  </span>
+                </button>
+              </div>
+              {inCart && (
+                <p className="text-center text-xs font-semibold text-[var(--green)]">
+                  {t('yigim.inCartHint')}
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="rounded-2xl border border-rose-200/90 bg-rose-50/80 p-4 text-center sm:p-5">
+              <div className="inline-flex items-center gap-2 text-sm font-extrabold text-rose-700">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-600 font-black">
+                  ✕
+                </span>
+                {t('favorites.closedAlert')}
+              </div>
+              <p className="mt-1.5 text-xs font-semibold leading-relaxed text-rose-600/90">
+                {t('favorites.closedAlertHint')}
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={onJoin}
-              disabled={!isOpen}
-              className="ba-btn min-w-0 flex-1 rounded-xl px-3 py-3.5 text-sm disabled:opacity-50 sm:px-4"
-            >
-              <ShoppingCart size={16} />
-              <span className="truncate">
-                {!isOpen
-                  ? t('yigim.closedShort')
-                  : inCart
-                    ? t('yigim.update')
-                    : t('yigim.join')}
-                {isOpen && lineTotal != null && (
-                  <span className="opacity-90"> · {formatSom(lineTotal)}</span>
-                )}
-              </span>
-            </button>
-          </div>
-          {inCart && isOpen && (
-            <p className="text-center text-xs font-semibold text-[var(--green)]">
-              {t('yigim.inCartHint')}
-            </p>
-          )}
-          {!isOpen && (
-            <p className="text-center text-xs font-semibold text-rose-600">
-              {t('yigim.closedHint')}
-            </p>
           )}
 
           <div className="space-y-2.5 rounded-2xl bg-[var(--surface)] p-4">
@@ -500,13 +604,13 @@ export function YigimDetailPage() {
             ].map(({ Icon, label, value }) => (
               <div
                 key={label}
-                className="rounded-xl bg-[var(--sand)]/70 px-3 py-2.5"
+                className="min-w-0 rounded-xl bg-[var(--sand)]/70 px-3 py-2.5"
               >
-                <p className="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide text-[var(--muted)] uppercase">
-                  <Icon size={11} />
-                  {label}
+                <p className="flex items-center gap-1 text-[10px] font-bold tracking-wide text-[var(--muted)] uppercase truncate">
+                  <Icon size={11} className="shrink-0" />
+                  <span className="truncate">{label}</span>
                 </p>
-                <p className="mt-0.5 text-sm font-extrabold text-[var(--ink)]">
+                <p className="mt-0.5 truncate text-sm font-extrabold text-[var(--ink)]">
                   {value}
                 </p>
               </div>
@@ -593,11 +697,11 @@ export function YigimDetailPage() {
             {t('yigim.aboutProduct')}
           </h2>
           {description ? (
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--muted)]">
+            <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--muted)]">
               {description}
             </p>
           ) : (
-            <p className="mt-3 text-sm text-[var(--muted)]">
+            <p className="mt-3 break-words text-sm text-[var(--muted)]">
               {t('yigim.aboutFallback', { title })}
             </p>
           )}
@@ -647,12 +751,22 @@ export function YigimDetailPage() {
               {t('common.seeAllArrow')}
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
             {related.map((data) => (
               <YigimCard key={data.yigim.id} data={data} />
             ))}
           </div>
         </section>
+      )}
+
+      {/* Floating toast notification when link copied */}
+      {copied && (
+        <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-2xl bg-[var(--ink)]/90 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl backdrop-blur-md transition sm:bottom-8">
+          <div className="flex items-center gap-2">
+            <Check size={16} className="text-[var(--green-bright)]" />
+            <span>{t('common.linkCopied')}</span>
+          </div>
+        </div>
       )}
     </div>
   )

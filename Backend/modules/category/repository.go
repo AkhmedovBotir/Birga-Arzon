@@ -16,7 +16,18 @@ type Repository struct {
 }
 
 func NewRepository(db *pgxpool.Pool) *Repository {
-	return &Repository{db: db}
+	r := &Repository{db: db}
+	go r.ensureSchema(context.Background())
+	return r
+}
+
+func (r *Repository) ensureSchema(ctx context.Context) {
+	_, _ = r.db.Exec(ctx, `
+		ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL DEFAULT 0;
+		ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL DEFAULT 0;
+		CREATE INDEX IF NOT EXISTS categories_sort_order_idx ON categories (sort_order);
+		CREATE INDEX IF NOT EXISTS subcategories_sort_order_idx ON subcategories (sort_order);
+	`)
 }
 
 func (r *Repository) Stats(ctx context.Context) (Stats, error) {
@@ -31,10 +42,10 @@ func (r *Repository) Stats(ctx context.Context) (Stats, error) {
 
 func (r *Repository) Tree(ctx context.Context) ([]CategoryNode, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, name, icon, COALESCE(image, ''), status,
+		SELECT id, name, icon, COALESCE(image, ''), status, COALESCE(sort_order, 0),
 			COALESCE((SELECT COUNT(*) FROM subcategories s WHERE s.category_id = c.id), 0)
 		FROM categories c
-		ORDER BY name ASC`)
+		ORDER BY sort_order ASC, created_at ASC, name ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +55,7 @@ func (r *Repository) Tree(ctx context.Context) ([]CategoryNode, error) {
 	var ids []uuid.UUID
 	for rows.Next() {
 		var n CategoryNode
-		if err := rows.Scan(&n.ID, &n.Name, &n.Icon, &n.Image, &n.Status, &n.ChildrenCount); err != nil {
+		if err := rows.Scan(&n.ID, &n.Name, &n.Icon, &n.Image, &n.Status, &n.SortOrder, &n.ChildrenCount); err != nil {
 			return nil, err
 		}
 		n.Children = []SubcategoryNode{}
@@ -59,10 +70,10 @@ func (r *Repository) Tree(ctx context.Context) ([]CategoryNode, error) {
 	}
 
 	srows, err := r.db.Query(ctx, `
-		SELECT id, category_id, name, status
+		SELECT id, category_id, name, status, COALESCE(sort_order, 0)
 		FROM subcategories
 		WHERE category_id = ANY($1)
-		ORDER BY name ASC`, ids)
+		ORDER BY sort_order ASC, created_at ASC, name ASC`, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -72,11 +83,12 @@ func (r *Repository) Tree(ctx context.Context) ([]CategoryNode, error) {
 	for srows.Next() {
 		var id, catID uuid.UUID
 		var name, status string
-		if err := srows.Scan(&id, &catID, &name, &status); err != nil {
+		var sortOrder int
+		if err := srows.Scan(&id, &catID, &name, &status, &sortOrder); err != nil {
 			return nil, err
 		}
 		byParent[catID] = append(byParent[catID], SubcategoryNode{
-			ID: id, Name: name, Status: status,
+			ID: id, Name: name, Status: status, SortOrder: sortOrder,
 		})
 	}
 	if err := srows.Err(); err != nil {
@@ -92,13 +104,49 @@ func (r *Repository) Tree(ctx context.Context) ([]CategoryNode, error) {
 	return list, nil
 }
 
+func (r *Repository) ReorderCategories(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	for idx, id := range ids {
+		if _, err := tx.Exec(ctx, `UPDATE categories SET sort_order = $2, updated_at = NOW() WHERE id = $1`, id, idx); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *Repository) ReorderSubcategories(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	for idx, id := range ids {
+		if _, err := tx.Exec(ctx, `UPDATE subcategories SET sort_order = $2, updated_at = NOW() WHERE id = $1`, id, idx); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 func (r *Repository) CreateCategory(ctx context.Context, c *Category) error {
 	return r.db.QueryRow(ctx, `
-		INSERT INTO categories (name, icon, image, status)
-		VALUES ($1,$2,$3,$4)
-		RETURNING id, created_at, updated_at`,
+		INSERT INTO categories (name, icon, image, status, sort_order)
+		VALUES ($1, $2, $3, $4, COALESCE((SELECT MAX(sort_order) + 1 FROM categories), 0))
+		RETURNING id, sort_order, created_at, updated_at`,
 		c.Name, c.Icon, c.Image, c.Status,
-	).Scan(&c.ID, &c.CreatedAt, &c.UpdatedAt)
+	).Scan(&c.ID, &c.SortOrder, &c.CreatedAt, &c.UpdatedAt)
 }
 
 func (r *Repository) UpdateCategory(ctx context.Context, id uuid.UUID, name, icon, image, status string) (*Category, error) {
@@ -106,9 +154,9 @@ func (r *Repository) UpdateCategory(ctx context.Context, id uuid.UUID, name, ico
 	err := r.db.QueryRow(ctx, `
 		UPDATE categories SET name=$2, icon=$3, image=$4, status=$5, updated_at=NOW()
 		WHERE id=$1
-		RETURNING id, name, icon, COALESCE(image, ''), status, created_at, updated_at`,
+		RETURNING id, name, icon, COALESCE(image, ''), status, COALESCE(sort_order, 0), created_at, updated_at`,
 		id, name, icon, image, status,
-	).Scan(&c.ID, &c.Name, &c.Icon, &c.Image, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+	).Scan(&c.ID, &c.Name, &c.Icon, &c.Image, &c.Status, &c.SortOrder, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -120,9 +168,9 @@ func (r *Repository) UpdateCategoryStatus(ctx context.Context, id uuid.UUID, sta
 	err := r.db.QueryRow(ctx, `
 		UPDATE categories SET status=$2, updated_at=NOW()
 		WHERE id=$1
-		RETURNING id, name, icon, COALESCE(image, ''), status, created_at, updated_at`,
+		RETURNING id, name, icon, COALESCE(image, ''), status, COALESCE(sort_order, 0), created_at, updated_at`,
 		id, status,
-	).Scan(&c.ID, &c.Name, &c.Icon, &c.Image, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+	).Scan(&c.ID, &c.Name, &c.Icon, &c.Image, &c.Status, &c.SortOrder, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -146,11 +194,11 @@ func (r *Repository) DeleteCategory(ctx context.Context, id uuid.UUID) error {
 
 func (r *Repository) CreateSubcategory(ctx context.Context, s *Subcategory) error {
 	return r.db.QueryRow(ctx, `
-		INSERT INTO subcategories (category_id, name, status)
-		VALUES ($1,$2,$3)
-		RETURNING id, created_at, updated_at`,
+		INSERT INTO subcategories (category_id, name, status, sort_order)
+		VALUES ($1, $2, $3, COALESCE((SELECT MAX(sort_order) + 1 FROM subcategories WHERE category_id = $1), 0))
+		RETURNING id, sort_order, created_at, updated_at`,
 		s.CategoryID, s.Name, s.Status,
-	).Scan(&s.ID, &s.CreatedAt, &s.UpdatedAt)
+	).Scan(&s.ID, &s.SortOrder, &s.CreatedAt, &s.UpdatedAt)
 }
 
 func (r *Repository) UpdateSubcategory(ctx context.Context, id uuid.UUID, name, status string) (*Subcategory, error) {
@@ -158,9 +206,9 @@ func (r *Repository) UpdateSubcategory(ctx context.Context, id uuid.UUID, name, 
 	err := r.db.QueryRow(ctx, `
 		UPDATE subcategories SET name=$2, status=$3, updated_at=NOW()
 		WHERE id=$1
-		RETURNING id, category_id, name, status, created_at, updated_at`,
+		RETURNING id, category_id, name, status, COALESCE(sort_order, 0), created_at, updated_at`,
 		id, name, status,
-	).Scan(&s.ID, &s.CategoryID, &s.Name, &s.Status, &s.CreatedAt, &s.UpdatedAt)
+	).Scan(&s.ID, &s.CategoryID, &s.Name, &s.Status, &s.SortOrder, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -172,9 +220,9 @@ func (r *Repository) UpdateSubcategoryStatus(ctx context.Context, id uuid.UUID, 
 	err := r.db.QueryRow(ctx, `
 		UPDATE subcategories SET status=$2, updated_at=NOW()
 		WHERE id=$1
-		RETURNING id, category_id, name, status, created_at, updated_at`,
+		RETURNING id, category_id, name, status, COALESCE(sort_order, 0), created_at, updated_at`,
 		id, status,
-	).Scan(&s.ID, &s.CategoryID, &s.Name, &s.Status, &s.CreatedAt, &s.UpdatedAt)
+	).Scan(&s.ID, &s.CategoryID, &s.Name, &s.Status, &s.SortOrder, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

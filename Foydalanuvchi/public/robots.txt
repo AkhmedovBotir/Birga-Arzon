@@ -1,0 +1,105 @@
+# ==============================================================================
+# Birga Arzon (https://birgaarzon.uz)
+# Robots.txt for Google Search Console, Googlebot & Search Engines
+# ==============================================================================
+
+User-agent: *
+# Asosiy ochiq sahifalarga ruxsat (Public indexable pages)
+Allow: /
+Allow: /kategoriyalar
+Allow: /qanday-ishlaydi
+Allow: /yigim/
+
+# Statik resurslar va dizayn elementlariga ruxsat (Rendering assets)
+Allow: /assets/
+Allow: /images/
+Allow: /*.js$
+Allow: /*.css$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.svg$
+Allow: /*.webp$
+Allow: /*.ico$
+Allow: /favicon*
+
+# Shaxsiy, buyurtma, savat va avtorizatsiya sahifalarini indekslashdan cheklash
+Disallow: /savat
+Disallow: /buyurtmalar
+Disallow: /buyurtmalar/
+Disallow: /buyurtmalar/*
+Disallow: /profil
+Disallow: /saqlanganlar
+Disallow: /kirish
+Disallow: /kirish/
+Disallow: /kirish/*
+Disallow: /api/
+
+# Xavfsizlik va token parametrlarini indekslashdan cheklash
+Disallow: /*?*token=
+Disallow: /*?*session=
+Disallow: /*?*auth=
+
+# ------------------------------------------------------------------------------
+# Googlebot (Google qidiruv roboti)
+# ------------------------------------------------------------------------------
+User-agent: Googlebot
+Allow: /
+Allow: /kategoriyalar
+Allow: /qanday-ishlaydi
+Allow: /yigim/
+Allow: /assets/
+Allow: /images/
+Disallow: /savat
+Disallow: /buyurtmalar
+Disallow: /buyurtmalar/*
+Disallow: /profil
+Disallow: /saqlanganlar
+Disallow: /kirish
+Disallow: /kirish/*
+Disallow: /api/
+
+# ------------------------------------------------------------------------------
+# Googlebot-Image (Rasmlar qidiruvi)
+# ------------------------------------------------------------------------------
+User-agent: Googlebot-Image
+Allow: /images/
+Allow: /assets/
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.svg$
+Allow: /*.webp$
+Allow: /*.gif$
+
+# ------------------------------------------------------------------------------
+# Yandex & Bingbot
+# ------------------------------------------------------------------------------
+User-agent: Yandex
+Allow: /
+Allow: /kategoriyalar
+Allow: /qanday-ishlaydi
+Allow: /yigim/
+Disallow: /savat
+Disallow: /buyurtmalar
+Disallow: /profil
+Disallow: /saqlanganlar
+Disallow: /kirish
+Clean-param: token&session&auth /
+
+User-agent: Bingbot
+Allow: /
+Allow: /kategoriyalar
+Allow: /qanday-ishlaydi
+Allow: /yigim/
+Disallow: /savat
+Disallow: /buyurtmalar
+Disallow: /profil
+Disallow: /saqlanganlar
+Disallow: /kirish
+
+# ------------------------------------------------------------------------------
+# Sitemap & Host
+# ------------------------------------------------------------------------------
+Sitemap: https://birgaarzon.uz/sitemap.xml
+Host: https://birgaarzon.uz

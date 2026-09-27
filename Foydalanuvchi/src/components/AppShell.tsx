@@ -11,10 +11,10 @@ export function AppShell() {
 
   return (
     <CategoryPickerProvider>
-      <div className="flex min-h-svh flex-col">
+      <div className="flex min-h-svh w-full min-w-0 flex-col overflow-x-clip">
         <Header />
         <main
-          className={`${shell} flex-1 pt-2.5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pt-5 md:pb-10`}
+          className={`${shell} min-w-0 flex-1 overflow-x-clip pt-2.5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pt-5 md:pb-10`}
         >
           <Outlet />
         </main>

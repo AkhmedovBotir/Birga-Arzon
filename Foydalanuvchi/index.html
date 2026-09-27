@@ -2,16 +2,109 @@
 <html lang="uz">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Birga Arzon — Birga xarid qiling, arzonroq oling | Ommaviy xarid platformasi</title>
+
+    <!-- Asosiy SEO meta ma'lumotlar -->
+    <meta
+      name="description"
+      content="Birga Arzon — O‘zbekistondagi birinchi ommaviy xarid platformasi. Do‘stlaringiz va yaqinlaringiz bilan birgalikda yig‘ilib xarid qiling va ulgurji eng arzon narxlarda yetkazib olishga ega bo‘ling!"
+    />
+    <meta
+      name="keywords"
+      content="birga arzon, birgaarzon, ommaviy xarid, arzon narxlar, ulgurji xarid, toshkent bozor, arzon mahsulotlar, jamoaviy xarid, arzon yetkazib berish, birgalikda sotib olish"
+    />
+    <meta name="author" content="Birga Arzon" />
+    <link rel="canonical" href="https://birgaarzon.uz/" />
+
+    <!-- Google Search Console va Robotlar boshqaruvi -->
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <!-- Google Search Console verifikatsiyasi (HTML teg kodi kiritish uchun) -->
+    <meta name="google-site-verification" content="google-search-console-verification-code" />
+
+    <!-- Open Graph (Facebook, Telegram, WhatsApp, LinkedIn) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Birga Arzon" />
+    <meta property="og:title" content="Birga Arzon — Birga xarid qiling, arzonroq oling!" />
+    <meta
+      property="og:description"
+      content="O‘zbekistondagi birinchi ommaviy xarid platformasi. Birga yig‘ilib ulgurji eng arzon narxlarda xarid qiling."
+    />
+    <meta property="og:url" content="https://birgaarzon.uz/" />
+    <meta property="og:image" content="https://birgaarzon.uz/images/hero-mascot.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Birga Arzon ommaviy xarid platformasi" />
+    <meta property="og:locale" content="uz_UZ" />
+    <meta property="og:locale:alternate" content="ru_RU" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Birga Arzon — Ommaviy xarid platformasi" />
+    <meta
+      name="twitter:description"
+      content="Birga xarid qiling, arzonroq oling! Ommaviy xaridlar va ulgurji narxlar."
+    />
+    <meta name="twitter:image" content="https://birgaarzon.uz/images/hero-mascot.png" />
+
+    <!-- Ikonkalar va PWA / Mobil sozlamalari -->
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0F766E" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Birga Arzon" />
+
+    <!-- Shriftlar -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Nunito:wght@700;800&display=swap"
       rel="stylesheet"
     />
-    <title>BirgaArzon</title>
+
+    <!-- Google Search Rich Snippets uchun Schema.org (JSON-LD) strukturaviy ma'lumotlar -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://birgaarzon.uz/#organization",
+            "name": "Birga Arzon",
+            "url": "https://birgaarzon.uz",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://birgaarzon.uz/images/hero-mascot.png"
+            },
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "telephone": "+998901234567",
+              "contactType": "customer service",
+              "areaServed": "UZ",
+              "availableLanguage": ["Uzbek", "Russian"]
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://birgaarzon.uz/#website",
+            "url": "https://birgaarzon.uz",
+            "name": "Birga Arzon",
+            "description": "Birga xarid qiling, arzonroq oling — O‘zbekistondagi ommaviy xarid platformasi",
+            "publisher": {
+              "@id": "https://birgaarzon.uz/#organization"
+            },
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://birgaarzon.uz/kategoriyalar?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            },
+            "inLanguage": "uz"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

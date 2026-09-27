@@ -75,7 +75,9 @@
     "noOptions": "Нет вариантов",
     "seeAll": "Смотреть все",
     "seeAllArrow": "Все →",
-    "product": "Товар"
+    "product": "Товар",
+    "share": "Поделиться",
+    "linkCopied": "Ссылка скопирована!"
   },
   "auth": {
     "title": "Вход",
@@ -139,6 +141,8 @@
     "locationLabel": "Координаты: {{coords}}",
     "myOrders": "Мои заказы",
     "myOrdersHint": "Код, статус и история",
+    "favorites": "Избранное",
+    "favoritesHint": "Сохраненные сборы",
     "editProfile": "Редактировать профиль",
     "editHint": "Имя, регион и адрес",
     "editHintNeed": "Нужно заполнить",
@@ -440,5 +444,18 @@
     "brand": "Birga Arzon",
     "ordersTitle": "Заказы",
     "historyTitle": "История"
+  },
+  "favorites": {
+    "title": "Избранное",
+    "count": "{{count}} сохраненных",
+    "empty": "Нет сохраненных сборов",
+    "emptyHint": "Нажмите на сердечко, чтобы сохранить понравившиеся сборы",
+    "exploreYigims": "Смотреть сборы",
+    "all": "Все",
+    "open": "Открытые",
+    "closed": "Завершенные",
+    "closedAlert": "Этот сбор закрыт",
+    "closedAlertHint": "Этот сбор достиг цели или завершен. Вступить в него нельзя.",
+    "viewClosed": "Подробнее"
   }
 }

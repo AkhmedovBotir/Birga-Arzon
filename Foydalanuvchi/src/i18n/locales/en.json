@@ -75,7 +75,9 @@
     "noOptions": "No options",
     "seeAll": "See all",
     "seeAllArrow": "All →",
-    "product": "Product"
+    "product": "Product",
+    "share": "Share",
+    "linkCopied": "Link copied!"
   },
   "auth": {
     "title": "Sign in",
@@ -139,6 +141,8 @@
     "locationLabel": "Location: {{coords}}",
     "myOrders": "My orders",
     "myOrdersHint": "Code, status and history",
+    "favorites": "Saved",
+    "favoritesHint": "Saved pool collections",
     "editProfile": "Edit profile",
     "editHint": "Name, region and address",
     "editHintNeed": "Needs completion",
@@ -440,5 +444,18 @@
     "brand": "Birga Arzon",
     "ordersTitle": "Orders",
     "historyTitle": "History"
+  },
+  "favorites": {
+    "title": "Saved",
+    "count": "{{count}} saved",
+    "empty": "No saved pools",
+    "emptyHint": "Click the heart icon to save pools you like",
+    "exploreYigims": "Browse pools",
+    "all": "All",
+    "open": "Active",
+    "closed": "Closed",
+    "closedAlert": "This pool is closed",
+    "closedAlertHint": "This pool has reached its goal or ended. You cannot join it.",
+    "viewClosed": "View details"
   }
 }

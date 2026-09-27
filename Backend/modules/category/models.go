@@ -12,6 +12,7 @@ type Category struct {
 	Icon      string    `json:"icon"`
 	Image     string    `json:"image"`
 	Status    string    `json:"status"`
+	SortOrder int       `json:"sort_order"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -21,14 +22,16 @@ type Subcategory struct {
 	CategoryID uuid.UUID `json:"category_id"`
 	Name       string    `json:"name"`
 	Status     string    `json:"status"`
+	SortOrder  int       `json:"sort_order"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 type SubcategoryNode struct {
-	ID     uuid.UUID `json:"id"`
-	Name   string    `json:"name"`
-	Status string    `json:"status"`
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Status    string    `json:"status"`
+	SortOrder int       `json:"sort_order"`
 }
 
 type CategoryNode struct {
@@ -37,6 +40,7 @@ type CategoryNode struct {
 	Icon          string            `json:"icon"`
 	Image         string            `json:"image"`
 	Status        string            `json:"status"`
+	SortOrder     int               `json:"sort_order"`
 	ChildrenCount int               `json:"children_count"`
 	Children      []SubcategoryNode `json:"children"`
 }
@@ -72,4 +76,8 @@ type StatusRequest struct {
 type Stats struct {
 	Categories    int `json:"categories"`
 	Subcategories int `json:"subcategories"`
+}
+
+type ReorderRequest struct {
+	IDs []uuid.UUID `json:"ids" binding:"required"`
 }

@@ -384,6 +384,20 @@ export const api = {
       token,
     ),
 
+  reorderCategories: (token: string, ids: string[]) =>
+    request<{ status: string }>(
+      '/categories/reorder',
+      { method: 'PATCH', body: JSON.stringify({ ids }) },
+      token,
+    ),
+
+  reorderSubcategories: (token: string, ids: string[]) =>
+    request<{ status: string }>(
+      '/subcategories/reorder',
+      { method: 'PATCH', body: JSON.stringify({ ids }) },
+      token,
+    ),
+
   uploadCategoryImage: async (token: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
@@ -552,11 +566,46 @@ export const api = {
 
   updateSettings: (
     token: string,
-    body: { min_order_amount?: number; delivery_fee?: number },
+    body: {
+      min_order_amount?: number
+      delivery_fee?: number
+      telegram_bot_token?: string
+      telegram_webapp_url?: string
+    },
   ) =>
     request<AppSettings>(
       '/admin/settings',
       { method: 'PUT', body: JSON.stringify(body) },
+      token,
+    ),
+
+  getBotStatus: (token: string) =>
+    request<{
+      active: boolean
+      bot_id?: number
+      username?: string
+      first_name?: string
+      webapp_url?: string
+      error?: string
+    }>('/admin/bot/status', {}, token),
+
+  testBotToken: (token: string, botToken: string) =>
+    request<{
+      ok: boolean
+      bot_id?: number
+      username?: string
+      first_name?: string
+      error?: string
+    }>(
+      '/admin/bot/test',
+      { method: 'POST', body: JSON.stringify({ token: botToken }) },
+      token,
+    ),
+
+  syncBotCommands: (token: string) =>
+    request<{ status: string; message: string }>(
+      '/admin/bot/sync-commands',
+      { method: 'POST' },
       token,
     ),
 }
@@ -564,6 +613,8 @@ export const api = {
 export type AppSettings = {
   min_order_amount: number
   delivery_fee?: number
+  telegram_bot_token?: string
+  telegram_webapp_url?: string
   updated_at?: string
 }
 
@@ -604,6 +655,7 @@ export type SubcategoryNode = {
   id: string
   name: string
   status: string
+  sort_order?: number
 }
 
 export type CategoryNode = {
@@ -612,6 +664,7 @@ export type CategoryNode = {
   icon: string
   image?: string
   status: string
+  sort_order?: number
   children_count: number
   children?: SubcategoryNode[]
 }
@@ -622,6 +675,7 @@ export type Category = {
   icon: string
   image?: string
   status: string
+  sort_order?: number
   created_at: string
   updated_at: string
 }

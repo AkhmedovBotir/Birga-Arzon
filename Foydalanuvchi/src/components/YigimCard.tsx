@@ -14,6 +14,7 @@ import { motion } from 'framer-motion'
 import { formatSom, mediaUrl } from '../config'
 import type { Yigim } from '../api/client'
 import { useCart, yigimCartKey } from '../cart/CartContext'
+import { useFavorites } from '../favorites/FavoritesContext'
 import { YigimProgress } from './YigimProgress'
 
 export type YigimCardData = {
@@ -35,6 +36,7 @@ export function YigimCard({ data }: Props) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { upsert, getByKey } = useCart()
+  const { isFavorite, toggleFavorite } = useFavorites()
   const {
     yigim,
     title,
@@ -43,6 +45,7 @@ export function YigimCard({ data }: Props) {
     location,
     discount,
   } = data
+  const fav = isFavorite(yigim.id)
   const resolvedLocation = location || t('yigim.uzbekistan')
   const isCombo = yigim.type === 'combo'
   const isOpen = yigim.status === 'active'
@@ -66,6 +69,11 @@ export function YigimCard({ data }: Props) {
     e.stopPropagation()
   }
 
+  const onToggleFav = (e: MouseEvent) => {
+    stop(e)
+    toggleFavorite(yigim.id)
+  }
+
   const onJoin = (e: MouseEvent) => {
     stop(e)
     if (!isOpen) return
@@ -87,7 +95,7 @@ export function YigimCard({ data }: Props) {
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col overflow-hidden rounded-[1.15rem] bg-white shadow-[0_8px_28px_-12px_rgba(15,61,46,0.16)] ring-1 ring-[var(--line)] transition hover:ring-[var(--brand)]/35"
+      className="flex min-w-0 flex-col overflow-hidden rounded-[1.15rem] bg-white shadow-[0_8px_28px_-12px_rgba(15,61,46,0.16)] ring-1 ring-[var(--line)] transition hover:ring-[var(--brand)]/35"
     >
       <Link to={detailTo} className="block focus:outline-none">
         <div className="relative aspect-[5/4] bg-[var(--sand)]">
@@ -103,29 +111,37 @@ export function YigimCard({ data }: Props) {
               </span>
             </div>
           )}
-          {showDiscount && (
+          {!isOpen ? (
+            <span className="absolute top-2.5 left-2.5 rounded-full bg-rose-600 px-2.5 py-1 text-[11px] font-extrabold text-white shadow-sm">
+              {t('favorites.closed') || 'Yopilgan'}
+            </span>
+          ) : showDiscount ? (
             <span className="absolute top-2.5 left-2.5 rounded-md bg-[var(--brand)] px-2 py-1 text-[11px] font-extrabold text-white shadow-sm">
               −{discount}%
             </span>
-          )}
+          ) : null}
           <button
             type="button"
             aria-label={t('common.favorite')}
-            onClick={stop}
-            className="absolute top-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-[var(--muted)] shadow-sm"
+            onClick={onToggleFav}
+            className={`absolute top-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow-sm transition active:scale-90 ${
+              fav
+                ? 'text-rose-500 shadow-rose-200'
+                : 'text-[var(--muted)] hover:text-rose-500'
+            }`}
           >
-            <Heart size={15} />
+            <Heart size={15} fill={fav ? 'currentColor' : 'none'} />
           </button>
         </div>
 
-        <div className="flex flex-col gap-1.5 px-3.5 pt-3.5">
-          <h3 className="line-clamp-2 text-[13px] leading-snug font-extrabold text-[var(--ink)] sm:text-sm">
+        <div className="flex flex-col gap-1.5 px-3 pt-3 sm:px-3.5 sm:pt-3.5">
+          <h3 className="line-clamp-2 text-[12.5px] leading-snug font-extrabold text-[var(--ink)] break-words sm:text-sm">
             {title}
           </h3>
 
-          <p className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--muted)]">
-            <MapPin size={12} className="text-[var(--brand)]" />
-            {resolvedLocation}
+          <p className="inline-flex max-w-full items-center gap-1 text-[11px] font-semibold text-[var(--muted)] truncate">
+            <MapPin size={12} className="shrink-0 text-[var(--brand)]" />
+            <span className="truncate">{resolvedLocation}</span>
           </p>
 
           {price != null && (
@@ -152,13 +168,13 @@ export function YigimCard({ data }: Props) {
             className="mt-1"
           />
 
-          <div className="mt-0.5 flex items-center gap-3 text-[10px] font-bold text-[var(--muted)]">
-            <span className="inline-flex items-center gap-1">
+          <div className="mt-0.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] font-bold text-[var(--muted)]">
+            <span className="inline-flex shrink-0 items-center gap-1">
               <Target size={11} className="text-[var(--green-mid)]" />
               {t('yigim.goalShort', { count: target })}
             </span>
             <span
-              className={`inline-flex items-center gap-1 ${
+              className={`inline-flex shrink-0 items-center gap-1 ${
                 isOpen ? 'text-[var(--green-mid)]' : 'text-rose-500'
               }`}
             >
@@ -173,28 +189,38 @@ export function YigimCard({ data }: Props) {
         </div>
       </Link>
 
-      <div className="mt-auto flex gap-2 p-3.5 pt-2.5">
-        <Link
-          to={detailTo}
-          className="inline-flex flex-1 items-center justify-center rounded-xl bg-[var(--sand)] px-2 py-2.5 text-[12px] font-extrabold text-[var(--ink)] transition hover:bg-[var(--sand-deep)]"
-        >
-          {t('common.details')}
-        </Link>
-        <button
-          type="button"
-          onClick={onJoin}
-          disabled={!isOpen}
-          className="ba-btn min-w-0 flex-[1.35] rounded-xl px-2 py-2.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          {inCart ? <Check size={14} /> : <ShoppingCart size={14} />}
-          <span className="truncate">
-            {!isOpen
-              ? t('yigim.closedShort')
-              : inCart
-                ? t('yigim.inCart')
-                : t('yigim.joinShort')}
-          </span>
-        </button>
+      <div className="mt-auto flex flex-col gap-1.5 p-2.5 pt-2 sm:flex-row sm:gap-2 sm:p-3.5 sm:pt-2.5">
+        {isOpen ? (
+          <>
+            <button
+              type="button"
+              onClick={onJoin}
+              className="ba-btn min-w-0 w-full rounded-xl py-2 px-2 text-[12px] font-extrabold sm:order-2 sm:flex-[1.35] sm:py-2.5"
+            >
+              {inCart ? (
+                <Check size={14} className="shrink-0" />
+              ) : (
+                <ShoppingCart size={14} className="shrink-0" />
+              )}
+              <span className="truncate">
+                {inCart ? t('yigim.inCart') : t('yigim.joinShort')}
+              </span>
+            </button>
+            <Link
+              to={detailTo}
+              className="inline-flex min-w-0 w-full items-center justify-center rounded-xl bg-[var(--sand)] py-1.5 px-2 text-[12px] font-extrabold text-[var(--ink)] transition hover:bg-[var(--sand-deep)] sm:order-1 sm:flex-1 sm:py-2.5"
+            >
+              <span className="truncate">{t('common.details')}</span>
+            </Link>
+          </>
+        ) : (
+          <Link
+            to={detailTo}
+            className="inline-flex min-w-0 w-full items-center justify-center rounded-xl bg-[var(--sand)] py-2.5 px-3 text-[12px] font-extrabold text-[var(--ink)] transition hover:bg-[var(--sand-deep)]"
+          >
+            <span className="truncate">{t('favorites.viewClosed') || t('common.details')}</span>
+          </Link>
+        )}
       </div>
     </motion.article>
   )

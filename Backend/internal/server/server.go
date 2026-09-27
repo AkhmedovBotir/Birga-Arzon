@@ -15,6 +15,7 @@ import (
 	"birgaarzon/backend/modules/product"
 	"birgaarzon/backend/modules/region"
 	"birgaarzon/backend/modules/settings"
+	"birgaarzon/backend/modules/telegrambot"
 	"birgaarzon/backend/modules/user"
 	"birgaarzon/backend/modules/yigim"
 
@@ -72,6 +73,7 @@ func New(cfg *config.Config, db *pgxpool.Pool) *Server {
 			settingsMod,
 			orderMod,
 			paymentMod,
+			telegrambot.New(db, settingsMod.Repository(), adminMod.AuthRequired()),
 		},
 		payment: paymentMod,
 	}

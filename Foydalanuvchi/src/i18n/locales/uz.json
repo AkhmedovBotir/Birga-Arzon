@@ -75,7 +75,9 @@
     "noOptions": "Variant yo‘q",
     "seeAll": "Barchasini ko‘rish",
     "seeAllArrow": "Barchasi →",
-    "product": "Mahsulot"
+    "product": "Mahsulot",
+    "share": "Ulashish",
+    "linkCopied": "Havola nusxalandi!"
   },
   "auth": {
     "title": "Kirish",
@@ -139,6 +141,8 @@
     "locationLabel": "Joylashuv: {{coords}}",
     "myOrders": "Buyurtmalarim",
     "myOrdersHint": "Kod, holat va tarix",
+    "favorites": "Saqlanganlar",
+    "favoritesHint": "Saralangan yig‘imlar ro‘yxati",
     "editProfile": "Profilni tahrirlash",
     "editHint": "Ism, hudud va manzil",
     "editHintNeed": "To‘ldirish kerak",
@@ -440,5 +444,18 @@
     "brand": "Birga Arzon",
     "ordersTitle": "Buyurtmalar",
     "historyTitle": "Tarix"
+  },
+  "favorites": {
+    "title": "Saqlanganlar",
+    "count": "{{count}} ta saqlangan",
+    "empty": "Saqlangan yig‘imlar yo‘q",
+    "emptyHint": "Yoqtirgan yig‘imlaringizni saqlab qo‘yish uchun yurakcha belgisini bosing",
+    "exploreYigims": "Yig‘imlarni ko‘rish",
+    "all": "Barchasi",
+    "open": "Ochiq",
+    "closed": "Yopilgan",
+    "closedAlert": "Bu yig‘im yopilgan",
+    "closedAlertHint": "Ushbu yig‘im o‘z maqsadiga erishgan yoki to‘xtatilgan. Unga qo‘shilish imkoniyati mavjud emas.",
+    "viewClosed": "Batafsil ko‘rish"
   }
 }

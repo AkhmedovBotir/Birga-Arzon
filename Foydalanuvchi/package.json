@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "sitemap": "node scripts/generate-sitemap.mjs",
+    "build": "node scripts/generate-sitemap.mjs && tsc -b && vite build",
     "build:web": "npm run build",
     "build:android": "npm run build && npx cap sync android && cd android && .\\gradlew.bat assembleDebug",
     "build:aab": "npm run build && npx cap sync android && cd android && .\\gradlew.bat bundleRelease",

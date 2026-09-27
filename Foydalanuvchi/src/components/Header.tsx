@@ -75,9 +75,9 @@ export function Header() {
     }`
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--line)]/50 bg-[var(--surface)]/95 backdrop-blur-md">
+    <header className="sticky top-0 z-30 w-full overflow-x-clip border-b border-[var(--line)]/50 bg-[var(--surface)]/95 backdrop-blur-md">
       <div
-        className={`${shell} flex items-center gap-2 py-2.5 sm:gap-3 sm:py-3 md:gap-4 md:py-3.5`}
+        className={`${shell} flex min-w-0 items-center gap-2 py-2.5 sm:gap-3 sm:py-3 md:gap-4 md:py-3.5`}
       >
         {/* Brand */}
         <Link
@@ -224,7 +224,7 @@ export function Header() {
           ) : (
             <Link
               to="/kirish"
-              className="ba-btn hidden h-9 items-center gap-1.5 rounded-xl px-3.5 text-[13px] whitespace-nowrap md:inline-flex lg:h-10 lg:px-5 lg:text-sm"
+              className="ba-btn !hidden h-9 items-center gap-1.5 rounded-xl px-3.5 text-[13px] whitespace-nowrap md:!inline-flex lg:h-10 lg:px-5 lg:text-sm"
             >
               <UserRound size={15} />
               {t('common.login')}

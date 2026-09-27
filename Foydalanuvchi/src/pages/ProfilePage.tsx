@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronRight,
   ClipboardList,
+  Heart,
   LogOut,
   MapPinned,
   PencilLine,
@@ -12,6 +13,7 @@ import { MapContainer, Marker, TileLayer } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useAuth } from '../auth/AuthContext'
+import { useFavorites } from '../favorites/FavoritesContext'
 import { phoneDisplay } from '../lib/phone'
 
 const pinIcon = L.divIcon({
@@ -36,6 +38,7 @@ function initials(name: string) {
 export function ProfilePage() {
   const { t } = useTranslation()
   const { user, isAuthenticated, loading, logout } = useAuth()
+  const { count: favCount } = useFavorites()
 
   if (loading && !user) {
     return (
@@ -68,6 +71,15 @@ export function ProfilePage() {
       label: t('profile.myOrders'),
       hint: t('profile.myOrdersHint'),
       Icon: ClipboardList,
+    },
+    {
+      to: '/saqlanganlar',
+      label: t('profile.favorites'),
+      hint:
+        favCount > 0
+          ? t('favorites.count', { count: favCount })
+          : t('profile.favoritesHint'),
+      Icon: Heart,
     },
     {
       to: '/kirish/profil',

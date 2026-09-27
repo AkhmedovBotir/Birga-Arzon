@@ -70,7 +70,7 @@ func (m *Module) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	if req.MinOrderAmount == nil && req.DeliveryFee == nil {
+	if req.MinOrderAmount == nil && req.DeliveryFee == nil && req.TelegramBotToken == nil && req.TelegramWebappURL == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields"})
 		return
 	}

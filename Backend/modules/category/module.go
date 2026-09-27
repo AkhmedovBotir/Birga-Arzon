@@ -39,6 +39,7 @@ func (m *Module) Register(rg *gin.RouterGroup) {
 		g.GET("/stats", m.Stats)
 		g.GET("/tree", m.Tree)
 		g.POST("/upload", m.Upload)
+		g.PATCH("/reorder", m.ReorderCategories)
 		g.POST("", m.CreateCategory)
 		g.PUT("/:id", m.UpdateCategory)
 		g.PATCH("/:id/status", m.UpdateCategoryStatus)
@@ -48,6 +49,7 @@ func (m *Module) Register(rg *gin.RouterGroup) {
 
 	sg := rg.Group("/subcategories")
 	{
+		sg.PATCH("/reorder", m.ReorderSubcategories)
 		sg.PUT("/:id", m.UpdateSubcategory)
 		sg.PATCH("/:id/status", m.UpdateSubcategoryStatus)
 		sg.DELETE("/:id", m.DeleteSubcategory)
@@ -356,4 +358,30 @@ func (m *Module) Upload(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"url": "/uploads/categories/" + name})
+}
+
+func (m *Module) ReorderCategories(c *gin.Context) {
+	var req ReorderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := m.repo.ReorderCategories(c.Request.Context(), req.IDs); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (m *Module) ReorderSubcategories(c *gin.Context) {
+	var req ReorderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := m.repo.ReorderSubcategories(c.Request.Context(), req.IDs); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

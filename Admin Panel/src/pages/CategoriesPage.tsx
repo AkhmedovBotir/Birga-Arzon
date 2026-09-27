@@ -2,8 +2,11 @@ import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   FolderTree,
+  GripVertical,
   ImagePlus,
   Pencil,
   Plus,
@@ -77,6 +80,9 @@ export function CategoriesPage() {
   const [query, setQuery] = useState('')
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [reordering, setReordering] = useState(false)
 
   const [catModal, setCatModal] = useState(false)
   const [subModal, setSubModal] = useState(false)
@@ -155,6 +161,71 @@ export function CategoriesPage() {
       else next.add(id)
       return next
     })
+  }
+
+  const handleReorder = async (sourceId: string, targetId: string) => {
+    if (!token || sourceId === targetId || query.trim()) return
+    const fromIndex = items.findIndex((c) => c.id === sourceId)
+    const toIndex = items.findIndex((c) => c.id === targetId)
+    if (fromIndex === -1 || toIndex === -1) return
+
+    const newItems = [...items]
+    const [moved] = newItems.splice(fromIndex, 1)
+    newItems.splice(toIndex, 0, moved)
+
+    setItems(newItems)
+    setReordering(true)
+
+    try {
+      const ids = newItems.map((c) => c.id)
+      await api.reorderCategories(token, ids)
+    } catch (err) {
+      void load()
+      setError(err instanceof Error ? err.message : t('common.error'))
+    } finally {
+      setReordering(false)
+    }
+  }
+
+  const handleMove = async (catId: string, direction: 'up' | 'down') => {
+    if (!token || query.trim() || reordering) return
+    const index = items.findIndex((c) => c.id === catId)
+    if (index === -1) return
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= items.length) return
+
+    const targetId = items[targetIndex].id
+    await handleReorder(catId, targetId)
+  }
+
+  const handleMoveSub = async (
+    catId: string,
+    subId: string,
+    direction: 'up' | 'down',
+  ) => {
+    if (!token) return
+    const cat = items.find((c) => c.id === catId)
+    if (!cat || !cat.children || cat.children.length <= 1) return
+
+    const index = cat.children.findIndex((s) => s.id === subId)
+    if (index === -1) return
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= cat.children.length) return
+
+    const newSubs = [...cat.children]
+    const [moved] = newSubs.splice(index, 1)
+    newSubs.splice(targetIndex, 0, moved)
+
+    setItems((prev) =>
+      prev.map((c) => (c.id === catId ? { ...c, children: newSubs } : c)),
+    )
+
+    try {
+      const ids = newSubs.map((s) => s.id)
+      await api.reorderSubcategories(token, ids)
+    } catch {
+      void load()
+    }
   }
 
   const patchCatStatus = (id: string, status: string) => {
@@ -485,16 +556,37 @@ export function CategoriesPage() {
 
       <div className="overflow-hidden rounded-3xl border border-teal-900/8 bg-white shadow-[0_18px_50px_-32px_rgba(15,118,110,0.45)]">
         <div className="flex flex-col gap-3 border-b border-slate-100 bg-gradient-to-r from-teal-50/80 to-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 sm:min-w-[280px]">
-            <Search size={16} className="text-slate-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('admin.searchCategories')}
-              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-            />
+          <div className="flex flex-1 flex-col gap-1 sm:max-w-md">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+              <Search size={16} className="text-slate-400" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('admin.searchCategories')}
+                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+            {query.trim() ? (
+              <p className="px-1 text-[11px] font-semibold text-amber-600">
+                {t('admin.reorderDisabledSearch')}
+              </p>
+            ) : (
+              <p className="flex items-center gap-1 px-1 text-[11px] font-medium text-slate-500">
+                <GripVertical size={13} className="shrink-0 text-teal-600" />
+                {t('admin.reorderHint')}
+              </p>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setOpenIds(new Set(filtered.map((c) => c.id)))}
@@ -536,6 +628,7 @@ export function CategoriesPage() {
             <table className="min-w-full text-left text-sm">
               <thead>
                 <tr className="bg-slate-50/90 text-[11px] tracking-wide text-slate-500 uppercase">
+                  <th className="w-16 px-2 py-3 text-center font-semibold">#</th>
                   <th className="px-5 py-3 font-semibold">{t('common.name')}</th>
                   <th className="px-4 py-3 font-semibold">{t('common.image')}</th>
                   <th className="px-4 py-3 font-semibold">{t('common.type')}</th>
@@ -547,7 +640,7 @@ export function CategoriesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((cat) => {
+                {filtered.map((cat, index) => {
                   const open = openIds.has(cat.id)
                   const kids = cat.children ?? []
                   return (
@@ -556,8 +649,44 @@ export function CategoriesPage() {
                       cat={cat}
                       kids={kids}
                       open={open}
+                      index={index}
+                      total={filtered.length}
+                      isReorderDisabled={Boolean(query.trim()) || reordering}
                       togglingId={togglingId}
+                      isDragging={draggedId === cat.id}
+                      isDragOver={dragOverId === cat.id}
                       onToggle={() => toggle(cat.id)}
+                      onMoveUp={() => void handleMove(cat.id, 'up')}
+                      onMoveDown={() => void handleMove(cat.id, 'down')}
+                      onMoveSubUp={(subId) => void handleMoveSub(cat.id, subId, 'up')}
+                      onMoveSubDown={(subId) => void handleMoveSub(cat.id, subId, 'down')}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', cat.id)
+                        e.dataTransfer.effectAllowed = 'move'
+                        setDraggedId(cat.id)
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'move'
+                        if (dragOverId !== cat.id) setDragOverId(cat.id)
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverId === cat.id) setDragOverId(null)
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        const sourceId =
+                          e.dataTransfer.getData('text/plain') || draggedId
+                        if (sourceId && sourceId !== cat.id) {
+                          void handleReorder(sourceId, cat.id)
+                        }
+                        setDraggedId(null)
+                        setDragOverId(null)
+                      }}
+                      onDragEnd={() => {
+                        setDraggedId(null)
+                        setDragOverId(null)
+                      }}
                       onStatusCat={() => void onToggleCat(cat)}
                       onStatusSub={(sub) => void onToggleSub(cat, sub)}
                       onAddSub={() => openCreateSub(cat.id)}
@@ -750,8 +879,22 @@ function CategoryAccordion({
   cat,
   kids,
   open,
+  index,
+  total,
+  isReorderDisabled,
   togglingId,
+  isDragging,
+  isDragOver,
   onToggle,
+  onMoveUp,
+  onMoveDown,
+  onMoveSubUp,
+  onMoveSubDown,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
   onStatusCat,
   onStatusSub,
   onAddSub,
@@ -763,8 +906,22 @@ function CategoryAccordion({
   cat: CategoryNode
   kids: SubcategoryNode[]
   open: boolean
+  index: number
+  total: number
+  isReorderDisabled: boolean
   togglingId: string | null
+  isDragging: boolean
+  isDragOver: boolean
   onToggle: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onMoveSubUp: (subId: string) => void
+  onMoveSubDown: (subId: string) => void
+  onDragStart: (e: React.DragEvent) => void
+  onDragOver: (e: React.DragEvent) => void
+  onDragLeave: () => void
+  onDrop: (e: React.DragEvent) => void
+  onDragEnd: () => void
   onStatusCat: () => void
   onStatusSub: (sub: SubcategoryNode) => void
   onAddSub: () => void
@@ -777,7 +934,52 @@ function CategoryAccordion({
 
   return (
     <>
-      <tr className="border-t border-slate-100 bg-white transition hover:bg-teal-50/50">
+      <tr
+        draggable={!isReorderDisabled}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
+        className={`border-t border-slate-100 bg-white transition hover:bg-teal-50/50 ${
+          isDragging ? 'opacity-40 bg-teal-50/40' : ''
+        } ${isDragOver ? 'border-t-2 !border-t-teal-600 bg-teal-50/70' : ''}`}
+      >
+        <td className="w-16 px-2 py-3.5">
+          <div className="flex items-center justify-center gap-1">
+            {!isReorderDisabled ? (
+              <span
+                title={t('admin.dragToReorder')}
+                className="flex h-7 w-5 cursor-grab items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
+              >
+                <GripVertical size={15} />
+              </span>
+            ) : null}
+            <div className="flex flex-col">
+              <button
+                type="button"
+                disabled={isReorderDisabled || index === 0}
+                onClick={onMoveUp}
+                title={t('admin.moveUp')}
+                className="flex h-4 w-4 items-center justify-center rounded text-slate-400 transition hover:bg-teal-100 hover:text-teal-800 disabled:opacity-20 disabled:hover:bg-transparent"
+              >
+                <ArrowUp size={11} strokeWidth={2.5} />
+              </button>
+              <button
+                type="button"
+                disabled={isReorderDisabled || index === total - 1}
+                onClick={onMoveDown}
+                title={t('admin.moveDown')}
+                className="flex h-4 w-4 items-center justify-center rounded text-slate-400 transition hover:bg-teal-100 hover:text-teal-800 disabled:opacity-20 disabled:hover:bg-transparent"
+              >
+                <ArrowDown size={11} strokeWidth={2.5} />
+              </button>
+            </div>
+            <span className="w-4 text-center text-xs font-semibold text-slate-400">
+              {index + 1}
+            </span>
+          </div>
+        </td>
         <td className="px-5 py-3.5">
           <button
             type="button"
@@ -852,7 +1054,7 @@ function CategoryAccordion({
       </tr>
 
       <tr>
-        <td colSpan={6} className="p-0">
+        <td colSpan={7} className="p-0">
           <AnimatePresence initial={false}>
             {open && (
               <motion.div
@@ -876,7 +1078,32 @@ function CategoryAccordion({
                             i % 2 === 0 ? 'bg-slate-50/60' : 'bg-white/60'
                           }`}
                         >
-                          <td className="py-3 pr-4 pl-14">
+                          <td className="w-16 px-2 py-3 text-center">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <button
+                                type="button"
+                                disabled={i === 0}
+                                onClick={() => onMoveSubUp(sub.id)}
+                                title={t('admin.moveUp')}
+                                className="flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-sky-100 hover:text-sky-800 disabled:opacity-20 disabled:hover:bg-transparent"
+                              >
+                                <ArrowUp size={11} strokeWidth={2.5} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={i === kids.length - 1}
+                                onClick={() => onMoveSubDown(sub.id)}
+                                title={t('admin.moveDown')}
+                                className="flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-sky-100 hover:text-sky-800 disabled:opacity-20 disabled:hover:bg-transparent"
+                              >
+                                <ArrowDown size={11} strokeWidth={2.5} />
+                              </button>
+                              <span className="w-3 text-center text-[10px] font-semibold text-slate-400">
+                                {i + 1}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3 pr-4 pl-4">
                             <div className="flex items-center gap-2">
                               <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
                               <span className="font-medium text-slate-800">

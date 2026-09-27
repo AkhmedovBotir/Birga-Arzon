@@ -16,6 +16,7 @@ import {
 import { mediaUrl } from '../config'
 import { EmptyBox } from '../components/Mascot'
 import { YigimCard, type YigimCardData } from '../components/YigimCard'
+import { useSEO } from '../lib/seo'
 
 function unitLabel(unit: string) {
   if (unit === 'litr') return 'l'
@@ -75,6 +76,7 @@ function CategoryPhoto({ src, name }: { src: string; name: string }) {
 
 export function CategoriesPage() {
   const { t } = useTranslation()
+  useSEO('Kategoriyalar — Barcha mahsulotlar', 'Birga Arzon do‘konidagi barcha mahsulot kategoriyalari va ommaviy yig‘imlar ro‘yxati.')
   const [params, setParams] = useSearchParams()
   const catId = params.get('cat') ?? ''
   const subId = params.get('sub') ?? ''
@@ -472,12 +474,12 @@ export function CategoriesPage() {
                           key={c.id}
                           type="button"
                           onClick={() => setFilter(c.id)}
-                          className="group flex flex-col overflow-hidden rounded-2xl bg-[var(--sand)]/60 p-2 text-left transition hover:bg-white hover:ring-1 hover:ring-[var(--brand)]/30"
+                          className="group flex min-w-0 flex-col overflow-hidden rounded-2xl bg-[var(--sand)]/60 p-1.5 text-left transition hover:bg-white hover:ring-1 hover:ring-[var(--brand)]/30 sm:p-2"
                         >
                           <span className="aspect-square overflow-hidden rounded-xl bg-white shadow-sm">
                             <CategoryPhoto src={photo} name={c.name} />
                           </span>
-                          <span className="mt-1.5 line-clamp-2 text-center text-[10px] font-extrabold text-[var(--ink)] sm:text-[11px]">
+                          <span className="mt-1.5 line-clamp-2 text-center text-[10px] font-extrabold text-[var(--ink)] break-words sm:text-[11px]">
                             {c.name}
                           </span>
                         </button>

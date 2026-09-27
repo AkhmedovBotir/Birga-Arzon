@@ -11,11 +11,13 @@ import {
   Truck,
   Users,
 } from 'lucide-react'
+import { useSEO } from '../lib/seo'
 
 const stepIcons = [Smartphone, ShoppingCart, Users, Truck] as const
 
 export function HowItWorksPage() {
   const { t } = useTranslation()
+  useSEO('Qanday ishlaydi? — Birga Arzon', 'Birga Arzon xizmati qanday ishlashi, ommaviy xaridlarga qo‘shilish va arzon xarid qilish bo‘yicha qo‘llanma.')
 
   const steps = [1, 2, 3, 4].map((n) => ({
     n,

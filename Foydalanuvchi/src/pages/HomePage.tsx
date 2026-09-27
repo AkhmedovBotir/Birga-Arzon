@@ -22,6 +22,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useCategoryPicker } from '../components/CategoryPicker'
 import { EmptyBox } from '../components/Mascot'
 import { YigimCard, type YigimCardData } from '../components/YigimCard'
+import { useSEO } from '../lib/seo'
 
 /** Birinchi qator: mobil 2, tablet 3, desktop 4 */
 const HOME_YIGIM_LIMIT = 4
@@ -60,6 +61,7 @@ function comboPrice(
 
 export function HomePage() {
   const { t } = useTranslation()
+  useSEO('Bosh sahifa — Birga xarid, arzon narx')
   const { isAuthenticated } = useAuth()
   const { openPicker } = useCategoryPicker()
   const yigimRef = useRef<HTMLElement>(null)
@@ -153,6 +155,7 @@ export function HomePage() {
     const list: YigimCardData[] = []
 
     for (const y of yigims) {
+      if (y.status !== 'active') continue
       const isCombo = y.type === 'combo'
       const product = y.product_id ? productMap.get(y.product_id) : undefined
       const title = isCombo
@@ -339,12 +342,12 @@ export function HomePage() {
                     key={c.id}
                     type="button"
                     onClick={openPicker}
-                    className="flex flex-col items-center gap-1.5 rounded-[1rem] bg-[var(--sand)] p-2 text-[var(--ink)] transition hover:bg-[var(--brand)] hover:text-white hover:shadow-[var(--shadow-btn)] sm:gap-2 sm:rounded-[1.15rem] sm:p-2.5"
+                    className="flex min-w-0 flex-col items-center gap-1.5 rounded-[1rem] bg-[var(--sand)] p-1.5 text-[var(--ink)] transition hover:bg-[var(--brand)] hover:text-white hover:shadow-[var(--shadow-btn)] sm:gap-2 sm:rounded-[1.15rem] sm:p-2.5"
                   >
                     <span className="flex aspect-square w-full max-w-[3.5rem] items-center justify-center overflow-hidden rounded-xl bg-white sm:max-w-[4rem] sm:rounded-2xl">
                       <LayoutGrid size={22} className="text-[var(--brand)] sm:h-6 sm:w-6" />
                     </span>
-                    <span className="line-clamp-2 text-center text-[10px] font-extrabold leading-tight sm:text-[11px] md:text-xs">
+                    <span className="line-clamp-2 text-center text-[10px] font-extrabold leading-tight break-words sm:text-[11px] md:text-xs">
                       {c.name}
                     </span>
                   </button>
@@ -354,7 +357,7 @@ export function HomePage() {
                 <Link
                   key={c.id}
                   to={`/kategoriyalar?cat=${encodeURIComponent(c.id)}`}
-                  className="flex flex-col items-center gap-1.5 rounded-[1rem] bg-[var(--sand)] p-2 text-[var(--ink)] transition hover:bg-[var(--brand)] hover:text-white hover:shadow-[var(--shadow-btn)] sm:gap-2 sm:rounded-[1.15rem] sm:p-2.5"
+                  className="flex min-w-0 flex-col items-center gap-1.5 rounded-[1rem] bg-[var(--sand)] p-1.5 text-[var(--ink)] transition hover:bg-[var(--brand)] hover:text-white hover:shadow-[var(--shadow-btn)] sm:gap-2 sm:rounded-[1.15rem] sm:p-2.5"
                 >
                   <span className="flex aspect-square w-full max-w-[3.5rem] items-center justify-center overflow-hidden rounded-xl bg-white sm:max-w-[4rem] sm:rounded-2xl">
                     {c.photo ? (
@@ -370,7 +373,7 @@ export function HomePage() {
                       </span>
                     )}
                   </span>
-                  <span className="line-clamp-2 text-center text-[10px] font-extrabold leading-tight sm:text-[11px] md:text-xs">
+                  <span className="line-clamp-2 text-center text-[10px] font-extrabold leading-tight break-words sm:text-[11px] md:text-xs">
                     {c.name}
                   </span>
                 </Link>
