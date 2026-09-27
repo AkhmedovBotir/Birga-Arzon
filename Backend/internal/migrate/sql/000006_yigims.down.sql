@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS yigim_items;
+DROP TABLE IF EXISTS yigims;

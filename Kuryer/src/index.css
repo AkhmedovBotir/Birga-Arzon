@@ -1,74 +1,35 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Manrope:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
-@theme {
-  --font-sans: 'Plus Jakarta Sans', 'Manrope', system-ui, sans-serif;
-  --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
-
-  --color-brand-950: #051b14;
-  --color-brand-900: #0b3d2e;
-  --color-brand-800: #12543e;
-  --color-brand-700: #1b7a4a;
-  --color-brand-600: #229958;
-  --color-brand-100: #daf3e5;
-  --color-brand-50: #f1fbf5;
-  
-  --color-cream: #fbf8f2;
-  --color-gold-600: #b8913b;
-  --color-gold-500: #d4af37;
-  --color-gold-100: #faf3e0;
-  
-  --color-ink: #0f1c16;
-  --color-danger-500: #dc2626;
-  --color-danger-50: #fef2f2;
+:root {
+  --brand: #1d4ed8;
+  --brand-dark: #1e3a8a;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --surface: #f8fafc;
+  --glow: #93c5fd;
+  font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+  color: var(--ink);
+  background: var(--surface);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-*,
-*::before,
-*::after {
+* {
   box-sizing: border-box;
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
-  scroll-behavior: smooth;
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
 }
 
-html, body, #root {
-  min-height: 100dvh;
-  max-width: 100%;
-  background: #ede6da;
-  overflow-x: hidden;
-  font-family: 'Plus Jakarta Sans', 'Manrope', system-ui, sans-serif;
-  color: #0f1c16;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-img, video, canvas {
-  max-width: 100%;
-  height: auto;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: #8c9c93 !important;
-  opacity: 1;
-}
-
-.glass-dark {
-  background: rgba(11, 61, 46, 0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(212, 175, 55, 0.25);
-}
-
-@layer utilities {
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+body {
+  min-height: 100svh;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, #dbeafe 0%, transparent 55%),
+    radial-gradient(ellipse 70% 45% at 90% 10%, #bfdbfe 0%, transparent 50%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
 }

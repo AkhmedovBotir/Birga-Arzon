@@ -1,4 +1,5 @@
 .env
 bin/
-uploads/
 *.exe
+*.test
+uploads/

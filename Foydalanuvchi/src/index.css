@@ -1,163 +1,161 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Manrope:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
-@theme {
-  --font-sans: 'Plus Jakarta Sans', 'Manrope', system-ui, sans-serif;
-  --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+:root {
+  /* Sand / cream */
+  --surface: #fff8f0;
+  --sand: #f3ebe1;
+  --sand-deep: #ebe0d2;
+  --card: #ffffff;
+  --line: #e8dfd4;
 
-  --color-brand-950: #051b14;
-  --color-brand-900: #0b3d2e;
-  --color-brand-800: #12543e;
-  --color-brand-700: #1b7a4a;
-  --color-brand-600: #229958;
-  --color-brand-500: #2ebb6c;
-  --color-brand-400: #52d68e;
-  --color-brand-100: #daf3e5;
-  --color-brand-50: #f1fbf5;
-  
-  --color-cream: #fbf8f2;
-  --color-cream-100: #f4eee2;
-  --color-cream-200: #e8dfd0;
-  
-  --color-gold-600: #b8913b;
-  --color-gold-500: #d4af37;
-  --color-gold-400: #e5c358;
-  --color-gold-100: #faf3e0;
-  --color-gold-50: #fdfaf3;
-  
-  --color-ink: #0f1c16;
-  --color-ink-muted: #54665d;
-  --color-danger-500: #ef4444;
-  --color-danger-50: #fef2f2;
+  /* Emerald — brand + yig'im progress only */
+  --green: #0f3d2e;
+  --green-mid: #1a5c44;
+  --green-bright: #2d8a5e;
+  --green-soft: #e7f2ec;
+
+  /* Mandarin — CTAs, price, search */
+  --brand: #ff6a00;
+  --brand-dark: #e85d00;
+  --brand-soft: #fff1e6;
+  --brand-muted: #ffe0c2;
+
+  /* Type */
+  --ink: #0f3d2e;
+  --muted: #6b7a72;
+
+  /* Shadows */
+  --shadow-card: 0 14px 40px -24px rgba(15, 61, 46, 0.28);
+  --shadow-btn: 0 10px 24px -10px rgba(255, 106, 0, 0.45);
+
+  font-family: "Plus Jakarta Sans", "Nunito", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--surface);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-*,
-*::before,
-*::after {
+* {
   box-sizing: border-box;
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
-  scroll-behavior: smooth;
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
 }
 
-html, body, #root {
-  min-height: 100dvh;
-  max-width: 100%;
-  background: #ede6da;
-  overflow-x: hidden;
-  font-family: 'Plus Jakarta Sans', 'Manrope', system-ui, sans-serif;
-  color: #0f1c16;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+body {
+  min-height: 100svh;
+  background:
+    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(255, 106, 0, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(45, 138, 94, 0.07) 0%, transparent 50%),
+    var(--surface);
 }
 
-img, video, canvas {
-  max-width: 100%;
+#root {
+  min-height: 100svh;
 }
 
-[data-slider="product"] img {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  object-fit: contain !important;
-  display: block;
-  background: #fbf8f2;
+button,
+input,
+select {
+  font: inherit;
 }
 
-[data-lightbox="full"] img {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  object-fit: contain !important;
-  display: block;
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-input::placeholder,
-textarea::placeholder {
-  color: #8c9c93 !important;
-  opacity: 1;
+::-webkit-scrollbar-thumb {
+  background: #d4c4b4;
+  border-radius: 999px;
 }
 
-/* Glassmorphism & Effects */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(232, 223, 208, 0.8);
+@media (max-width: 639px) {
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
 }
 
-.glass-dark {
-  background: rgba(11, 61, 46, 0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(196, 163, 90, 0.25);
-}
-
-.gradient-brand {
-  background: linear-gradient(135deg, #07261c 0%, #0b3d2e 50%, #176348 100%);
-}
-
-.gradient-gold {
-  background: linear-gradient(135deg, #d4af37 0%, #b8913b 100%);
-}
-
-.gradient-card {
-  background: linear-gradient(180deg, #ffffff 0%, #faf6ee 100%);
-}
-
-.shadow-luxe {
-  box-shadow: 0 10px 30px -5px rgba(11, 61, 46, 0.08), 0 4px 12px -2px rgba(11, 61, 46, 0.04);
-}
-
-.shadow-glow-gold {
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.35);
-}
-
-.shadow-glow-emerald {
-  box-shadow: 0 0 20px rgba(34, 153, 88, 0.35);
-}
-
-.bx-map {
-  height: 270px;
-  width: 100%;
-  border-radius: 20px;
-  overflow: hidden;
-  border: 1px solid #e8dfd0;
+.leaflet-container {
   z-index: 0;
-  background: #fbf8f2;
+  font: inherit;
+  background: var(--sand);
 }
 
-.bx-map .leaflet-container {
-  height: 100%;
-  width: 100%;
-  font-family: inherit;
+/* Reusable primitives */
+.ba-card {
+  background: var(--card);
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--line);
 }
 
-.bx-map-pin {
-  background: transparent;
-  border: 0;
+.ba-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.85rem;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: var(--shadow-btn);
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.bx-map-pin-dot {
+.ba-btn:hover {
+  background: var(--brand-dark);
+}
+
+.ba-btn:active {
+  transform: scale(0.98);
+}
+
+.ba-btn-green {
+  background: var(--green);
+  box-shadow: 0 10px 24px -10px rgba(15, 61, 46, 0.4);
+}
+
+.ba-btn-green:hover {
+  background: var(--green-mid);
+}
+
+.ba-progress {
+  height: 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--green-soft) 85%, #dfe8e3);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(15, 61, 46, 0.06);
+}
+
+.ba-progress--sm {
+  height: 0.5rem;
+}
+
+.ba-progress--md {
+  height: 0.65rem;
+}
+
+.ba-progress > span {
   display: block;
-  width: 20px;
-  height: 20px;
-  background: #0b3d2e;
-  border: 3.5px solid #d4af37;
-  border-radius: 50%;
-  box-shadow: 0 4px 12px rgba(7, 38, 28, 0.45);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--green-mid) 0%,
+    var(--green-bright) 55%,
+    #3ecf8e 100%
+  );
+  box-shadow: 0 0 10px color-mix(in srgb, var(--green-bright) 35%, transparent);
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@layer utilities {
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+.ba-progress > span[data-full] {
+  background: linear-gradient(90deg, #0f7a4a, #22c55e);
 }

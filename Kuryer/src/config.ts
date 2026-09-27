@@ -1,15 +1,19 @@
-/**
- * Backend API manzili (oxirida `/` bo‘lmasin).
- */
-export const API_BASE_URL = 'https://demo-api.mydiller.uz';
+export const config = {
+  apiBaseUrl: 'https://api.birgaarzon.uz/api/v1',
+  mediaBaseUrl: 'https://api.birgaarzon.uz',
+  appName: 'Birga Arzon Kuryer',
+} as const
 
-export const APP_TIMEZONE = 'Asia/Tashkent';
+export function mediaUrl(path?: string | null) {
+  if (!path) return ''
+  const raw = String(path).trim()
+  if (!raw) return ''
+  if (/^(https?:|data:|blob:)/i.test(raw)) return raw
+  if (raw.startsWith('//')) return `https:${raw}`
+  const normalized = raw.startsWith('/') ? raw : `/${raw}`
+  return `${config.mediaBaseUrl}${normalized}`
+}
 
-export const APP_ROLE = 'courier' as const;
-export const APP_NAME = 'Birga Xarid — Kuryer';
-
-export const PAYMENT_TIMEOUT_HOURS = 4;
-export const HOME_DELIVERY_FEE_UZS = 10_000;
-export const PICKUP_CODE_LENGTH = 4;
-
-export const PAYMENT_PROVIDERS = ['click', 'payme', 'uzum', 'cash_on_delivery'] as const;
+export function formatSom(n: number) {
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+}

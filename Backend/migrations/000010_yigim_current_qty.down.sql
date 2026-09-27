@@ -1,0 +1,1 @@
+ALTER TABLE yigims DROP COLUMN IF EXISTS current_qty;

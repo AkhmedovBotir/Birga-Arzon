@@ -1,12 +1,17 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'uz.kletka.app',
-  appName: 'Birga Xarid',
+  appId: 'uz.birgaarzon.user',
+  appName: 'Birga Arzon',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
   },
-};
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 0,
+    },
+  },
+}
 
-export default config;
+export default config

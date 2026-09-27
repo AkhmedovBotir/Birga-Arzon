@@ -1,0 +1,3 @@
+ALTER TABLE yigims
+  ADD COLUMN IF NOT EXISTS current_qty INTEGER NOT NULL DEFAULT 0
+  CHECK (current_qty >= 0);

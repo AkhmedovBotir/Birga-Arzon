@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -12,67 +11,127 @@ import (
 )
 
 type Config struct {
-	HTTPAddr             string
-	AppEnv               string
-	PublicURL            string
-	DatabaseURL          string
-	JWTSecret            string
-	PaymentTimeout       time.Duration
-	HomeDeliveryFeeUZS int64
-	MinOrderUZS        int64
-	TelegramBotToken   string
-	DefaultOTP         string
+	AppName            string
+	AppEnv             string
+	HTTPHost           string
+	HTTPPort           string
+	DBHost             string
+	DBPort             string
+	DBUser             string
+	DBPassword         string
+	DBName             string
+	DBSSLMode          string
+	DBMaxConns         int32
+	DBMinConns         int32
+	MigrateDir         string
+	MigrateLockTimeout time.Duration
+	JWTSecret          string
+	JWTExpiresHours    int
+
+	EskizEmail       string
+	EskizPassword    string
+	EskizFrom        string
+	OTPttlMinutes    int
+	OTPResendSeconds int
+
+	AtmosConsumerKey    string
+	AtmosConsumerSecret string
+	AtmosStoreID        string
+	AtmosAPIKey         string
+	AtmosBaseURL        string
+	AtmosCheckoutURL    string
+	FrontendURL         string
 }
 
-func Load() Config {
+func Load() (*Config, error) {
 	_ = godotenv.Load()
-	_ = godotenv.Load("backend/.env")
-	hours := intEnv("PAYMENT_TIMEOUT_HOURS", 4)
-	return Config{
-		HTTPAddr:           env("HTTP_ADDR", ":8080"),
-		AppEnv:             env("APP_ENV", "development"),
-		PublicURL:          strings.TrimRight(env("PUBLIC_URL", "http://localhost:8080"), "/"),
-		DatabaseURL:        databaseURL(),
-		JWTSecret:          env("JWT_SECRET", "change-me-in-production"),
-		PaymentTimeout:     time.Duration(hours) * time.Hour,
-		HomeDeliveryFeeUZS: int64(intEnv("HOME_DELIVERY_FEE_UZS", 10000)),
-		MinOrderUZS:        int64(intEnv("MIN_ORDER_UZS", 100000)),
-		TelegramBotToken:   env("TELEGRAM_BOT_TOKEN", ""),
-		DefaultOTP:         env("DEFAULT_OTP", "11111"),
+
+	maxConns, err := strconv.Atoi(getEnv("DB_MAX_CONNS", "20"))
+	if err != nil {
+		return nil, fmt.Errorf("DB_MAX_CONNS: %w", err)
 	}
+	minConns, err := strconv.Atoi(getEnv("DB_MIN_CONNS", "2"))
+	if err != nil {
+		return nil, fmt.Errorf("DB_MIN_CONNS: %w", err)
+	}
+
+	lockTimeout, err := time.ParseDuration(getEnv("MIGRATE_LOCK_TIMEOUT", "15s"))
+	if err != nil {
+		return nil, fmt.Errorf("MIGRATE_LOCK_TIMEOUT: %w", err)
+	}
+
+	jwtHours, err := strconv.Atoi(getEnv("JWT_EXPIRES_HOURS", "72"))
+	if err != nil {
+		return nil, fmt.Errorf("JWT_EXPIRES_HOURS: %w", err)
+	}
+
+	otpTTL, err := strconv.Atoi(getEnv("OTP_TTL_MINUTES", "5"))
+	if err != nil {
+		return nil, fmt.Errorf("OTP_TTL_MINUTES: %w", err)
+	}
+	otpResend, err := strconv.Atoi(getEnv("OTP_RESEND_SECONDS", "60"))
+	if err != nil {
+		return nil, fmt.Errorf("OTP_RESEND_SECONDS: %w", err)
+	}
+
+	cfg := &Config{
+		AppName:            getEnv("APP_NAME", "Birga Arzon API"),
+		AppEnv:             getEnv("APP_ENV", "development"),
+		HTTPHost:           getEnv("HTTP_HOST", "0.0.0.0"),
+		HTTPPort:           getEnv("HTTP_PORT", "8080"),
+		DBHost:             getEnv("DB_HOST", "127.0.0.1"),
+		DBPort:             getEnv("DB_PORT", "5432"),
+		DBUser:             getEnv("DB_USER", "birga"),
+		DBPassword:         getEnv("DB_PASSWORD", "birga_secret"),
+		DBName:             getEnv("DB_NAME", "birga_arzon"),
+		DBSSLMode:          getEnv("DB_SSLMODE", "disable"),
+		DBMaxConns:         int32(maxConns),
+		DBMinConns:         int32(minConns),
+		MigrateDir:         getEnv("MIGRATE_DIR", "migrations"),
+		MigrateLockTimeout: lockTimeout,
+		JWTSecret:          getEnv("JWT_SECRET", "birga-arzon-dev-secret-change-me"),
+		JWTExpiresHours:    jwtHours,
+		EskizEmail:         getEnv("ESKIZ_EMAIL", ""),
+		EskizPassword:      getEnv("ESKIZ_PASSWORD", ""),
+		EskizFrom:          getEnv("ESKIZ_FROM", "4546"),
+		OTPttlMinutes:      otpTTL,
+		OTPResendSeconds:   otpResend,
+		AtmosConsumerKey:    getEnv("ATMOS_CONSUMER_KEY", ""),
+		AtmosConsumerSecret: getEnv("ATMOS_CONSUMER_SECRET", ""),
+		AtmosStoreID:        getEnv("ATMOS_STORE_ID", ""),
+		AtmosAPIKey:         getEnv("ATMOS_API_KEY", ""),
+		AtmosBaseURL:        strings.TrimRight(getEnv("ATMOS_BASE_URL", "https://apigw.atmos.uz"), "/"),
+		AtmosCheckoutURL:    strings.TrimRight(getEnv("ATMOS_CHECKOUT_URL", "https://checkout.atmos.uz"), "/"),
+		FrontendURL:         strings.TrimRight(getEnv("FRONTEND_URL", "https://birgaarzon.uz"), "/"),
+	}
+
+	return cfg, nil
 }
 
-func (c Config) Dev() bool { return c.AppEnv != "production" }
+func (c *Config) DatabaseURL() string {
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName, c.DBSSLMode,
+	)
+}
 
-func databaseURL() string {
-	if v := env("DATABASE_URL", ""); v != "" {
+func (c *Config) MaintenanceDatabaseURL(maintenanceDB string) string {
+	if maintenanceDB == "" {
+		maintenanceDB = "postgres"
+	}
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, maintenanceDB, c.DBSSLMode,
+	)
+}
+
+func (c *Config) Addr() string {
+	return fmt.Sprintf("%s:%s", c.HTTPHost, c.HTTPPort)
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
 		return v
-	}
-	u := url.URL{
-		Scheme: "postgres",
-		User:   url.UserPassword(env("DB_USER", "postgres"), env("DB_PASSWORD", "123456")),
-		Host:   fmt.Sprintf("%s:%s", env("DB_HOST", "localhost"), env("DB_PORT", "5432")),
-		Path:   "/" + env("DB_NAME", "yangi"),
-	}
-	q := u.Query()
-	q.Set("sslmode", env("DB_SSLMODE", "disable"))
-	u.RawQuery = q.Encode()
-	return u.String()
-}
-
-func env(key, fallback string) string {
-	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
-		return v
-	}
-	return fallback
-}
-
-func intEnv(key string, fallback int) int {
-	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
-		n, err := strconv.Atoi(v)
-		if err == nil {
-			return n
-		}
 	}
 	return fallback
 }
